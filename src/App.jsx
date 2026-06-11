@@ -262,6 +262,21 @@ function MiniDistBar({ dist, width = 96, caption = false }) {
   );
 }
 
+// Stub link to the activity's detail page (Scored Activities in real Torus).
+function ActivityLink({ name, style }) {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  return (
+    <a
+      href={`#/scored_activities/${slug}`}
+      title={`Open ${name} in Scored Activities`}
+      onClick={(e) => e.stopPropagation()}
+      style={{ color: T.link, fontWeight: 600, textDecoration: "none", ...style }}
+    >
+      {name}
+    </a>
+  );
+}
+
 function LinkButton({ children, onClick, style }) {
   return (
     <button
@@ -380,8 +395,60 @@ function ProficiencyBuckets({ roster, selectedBucket, onSelectBucket }) {
   const counts = BUCKETS.map((b) => roster.filter((s) => s.bucket === b.id).length);
   const total = roster.length;
 
+  // Dot-strip scatterplot (the production Torus pattern): each dot is one
+  // student, stacked in columns within their proficiency region.
+  const W = 1000, H = 110, GAP = 8;
+  const WEIGHTS = [0.16, 0.4, 0.22, 0.22];
+  const PER_COL = 4;
+  const trackY = 94;
+  let cursor = 0;
+  const regions = BUCKETS.map((b, i) => {
+    const w = WEIGHTS[i] * (W - GAP * (BUCKETS.length - 1));
+    const r = { ...b, x: cursor, w, count: counts[i] };
+    cursor += w + GAP;
+    return r;
+  });
+
   return (
     <div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block", marginBottom: 10 }}>
+        {regions.map((r) => {
+          const dim = selectedBucket && selectedBucket !== r.id;
+          const selected = selectedBucket === r.id;
+          const cols = Math.max(1, Math.ceil(r.count / PER_COL));
+          const padX = 24;
+          const colSpacing = cols > 1 ? (r.w - padX * 2) / (cols - 1) : 0;
+          const dots = [];
+          for (let j = 0; j < r.count; j++) {
+            dots.push({
+              cx: cols > 1 ? r.x + padX + Math.floor(j / PER_COL) * colSpacing : r.x + r.w / 2,
+              cy: trackY - 12 - (j % PER_COL) * 14,
+            });
+          }
+          return (
+            <g
+              key={r.id}
+              onClick={() => onSelectBucket(selected ? null : r.id)}
+              style={{ cursor: "pointer", opacity: dim ? 0.35 : 1, transition: "opacity 0.15s" }}
+            >
+              <title>{`${r.label}: ${r.count} students (${Math.round((r.count / total) * 100)}%)`}</title>
+              {selected && (
+                <rect
+                  x={r.x - 2} y={4} width={r.w + 4} height={H - 8} rx={8}
+                  fill="rgba(0,108,217,0.05)" stroke={T.action} strokeWidth="1.5"
+                />
+              )}
+              <rect x={r.x} y={trackY} width={r.w} height={8} rx={4} fill={r.seg} />
+              {dots.map((d, k) => (
+                <circle key={k} cx={d.cx} cy={d.cy} r={4.5} fill={r.dot} />
+              ))}
+              {/* invisible hit area so empty space is clickable too */}
+              <rect x={r.x} y={0} width={r.w} height={H} fill="transparent" />
+            </g>
+          );
+        })}
+      </svg>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
         {BUCKETS.map((b, i) => {
           const selected = selectedBucket === b.id;
@@ -648,7 +715,7 @@ function InsightStrip({ objective, roster, onViewStruggling, onReviewActivity, o
       action: { label: "View Students", onClick: onViewStruggling },
     },
     weakest && {
-      text: <>Lowest-performing activity: <strong>{weakest.name}</strong> — {weakest.correctness}% correctness, {weakest.completion}% completion.</>,
+      text: <>Lowest-performing activity: <ActivityLink name={weakest.name} /> — {weakest.correctness}% correctness, {weakest.completion}% completion.</>,
       action: { label: "Review Activity", onClick: onReviewActivity },
     },
     lowAttempts > 0 && {
@@ -789,7 +856,7 @@ function SubObjectiveRows({ sub, index, open, lowN, weakest, onToggle, td }) {
                   return (
                     <div key={a.name} style={{ display: "flex", alignItems: "baseline", gap: 10, fontSize: 12.5 }}>
                       <span style={{ color: T.textMuted }}>•</span>
-                      <span style={{ fontWeight: 600, color: T.textHigh, minWidth: 200 }}>{a.name}</span>
+                      <ActivityLink name={a.name} style={{ minWidth: 200 }} />
                       <span style={{
                         fontSize: 10.5, fontWeight: 600, padding: "1px 8px", borderRadius: 999,
                         background: "#e6e7ec", color: T.textLow,
