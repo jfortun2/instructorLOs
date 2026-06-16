@@ -78,7 +78,171 @@ const emailFor = (name) => {
   return `${first}.${last}@testcourse.edu`.toLowerCase().replace(/[^a-z0-9.@-]/g, "");
 };
 
-// Activity-level data for the density objective (LO 1).
+const WEAK_CORRECT_THRESHOLD = 65;
+
+// Question-level activity detail for the density LO (matches Figma activity drill-down).
+const DENSITY_QUESTION_ITEMS = [
+  {
+    id: 1, poolId: "density_basics_pool_v1",
+    stem: "Which of the following correctly defines density?",
+    learningObjectives: ["Apply the density equation to calculate mass, volume and density of a solid or liquid."],
+    attempts: 52, correctPct: 82,
+    answers: [
+      { text: "Mass divided by volume (m/V)", count: 43, correct: true },
+      { text: "Volume divided by mass (V/m)", count: 6, correct: false },
+      { text: "Mass times volume (m×V)", count: 2, correct: false },
+      { text: "No answer / skipped", count: 1, correct: false },
+    ],
+    details: { uniqueStudents: 48, avgAttempts: 1.1, skipped: 1 },
+  },
+  {
+    id: 2, poolId: "rearrange_density_pool_v2", type: "multi-input",
+    stem: "A block has a volume of 4.0 cm³ and a mass of 12 g. Enter the mass, volume, and calculated density.",
+    learningObjectives: ["Rearrange the density equation to solve for mass or volume"],
+    attempts: 56, correctPct: 25,
+    inputs: [
+      { label: "Mass (g)", expected: "12", correctPct: 88, commonErrors: ["12 g entered correctly by most"] },
+      { label: "Volume (cm³)", expected: "4.0", correctPct: 76, commonErrors: ["4 cm³ without decimal", "40 cm³ (unit error)"] },
+      { label: "Density (g/cm³)", expected: "3.0", correctPct: 25, commonErrors: ["48 (multiplied instead of divided)", "0.33 (inverted)", "Left blank"] },
+    ],
+    multiInputSummary: { allFieldsCorrect: 25, atLeastOneCorrect: 82, avgFieldsCorrect: 1.9 },
+    details: { uniqueStudents: 50, avgAttempts: 2.4, skipped: 4 },
+  },
+  {
+    id: 3, poolId: "rearrange_density_pool_v2",
+    stem: "Rearrange d = m/V to solve for mass.",
+    learningObjectives: ["Rearrange the density equation to solve for mass or volume"],
+    attempts: 54, correctPct: 42,
+    answers: [
+      { text: "m = d × V", count: 23, correct: true },
+      { text: "m = V / d", count: 18, correct: false },
+      { text: "m = d / V", count: 10, correct: false },
+      { text: "No answer / skipped", count: 3, correct: false },
+    ],
+    details: { uniqueStudents: 49, avgAttempts: 2.1, skipped: 3 },
+  },
+  {
+    id: 4, poolId: "unit_conversion_pool_v1",
+    stem: "Convert 2.5 g/cm³ to kg/m³.",
+    learningObjectives: ["Select appropriate units for mass, volume, and density"],
+    attempts: 47, correctPct: 78,
+    answers: [
+      { text: "2500 kg/m³", count: 37, correct: true },
+      { text: "0.0025 kg/m³", count: 5, correct: false },
+      { text: "25 kg/m³", count: 3, correct: false },
+      { text: "No answer / skipped", count: 2, correct: false },
+    ],
+    details: { uniqueStudents: 45, avgAttempts: 1.0, skipped: 2 },
+  },
+  {
+    id: 5, poolId: "liquid_displacement_pool_v1", type: "multi-input",
+    stem: "A student measures 15 mL of water displaced by an irregular solid (mass = 45 g). Enter volume, mass, and density.",
+    learningObjectives: ["Apply density calculations to liquids using displacement data"],
+    attempts: 51, correctPct: 33,
+    inputs: [
+      { label: "Volume (mL)", expected: "15", correctPct: 71, commonErrors: ["150 (decimal error)", "15 cm³ without noting mL"] },
+      { label: "Mass (g)", expected: "45", correctPct: 84, commonErrors: ["450 (unit slip)", "Left blank"] },
+      { label: "Density (g/mL)", expected: "3.0", correctPct: 33, commonErrors: ["0.33 (inverted)", "675 (multiplied mass × volume)", "45/15 not simplified"] },
+    ],
+    multiInputSummary: { allFieldsCorrect: 33, atLeastOneCorrect: 79, avgFieldsCorrect: 1.9 },
+    details: { uniqueStudents: 47, avgAttempts: 2.2, skipped: 3 },
+  },
+  {
+    id: 6, poolId: "density_word_pool_v1",
+    stem: "Which variable must be held constant when comparing densities of two liquids?",
+    learningObjectives: [],
+    attempts: 44, correctPct: 60,
+    answers: [
+      { text: "Temperature", count: 26, correct: true },
+      { text: "Container shape", count: 10, correct: false },
+      { text: "Mass of the sample", count: 5, correct: false },
+      { text: "No answer / skipped", count: 3, correct: false },
+    ],
+    details: { uniqueStudents: 42, avgAttempts: 1.0, skipped: 3 },
+  },
+  {
+    id: 7, poolId: "mixed_solids_pool_v1",
+    stem: "Two cubes of equal volume have masses of 8 g and 24 g. How do their densities compare?",
+    learningObjectives: ["Apply the density equation to calculate mass, volume and density of a solid or liquid."],
+    attempts: 49, correctPct: 95,
+    answers: [
+      { text: "The 24 g cube is 3× denser", count: 47, correct: true },
+      { text: "They have equal density", count: 1, correct: false },
+      { text: "The 8 g cube is denser", count: 1, correct: false },
+      { text: "No answer / skipped", count: 0, correct: false },
+    ],
+    details: { uniqueStudents: 46, avgAttempts: 1.1, skipped: 0 },
+  },
+  {
+    id: 8, poolId: "irregular_object_pool_v1",
+    stem: "Why is water displacement used for irregular solids?",
+    learningObjectives: ["Apply density calculations to liquids using displacement data"],
+    attempts: 46, correctPct: 80,
+    answers: [
+      { text: "Volume cannot be measured directly with a ruler", count: 37, correct: true },
+      { text: "It increases the object's mass", count: 4, correct: false },
+      { text: "It converts mass to volume automatically", count: 3, correct: false },
+      { text: "No answer / skipped", count: 2, correct: false },
+    ],
+    details: { uniqueStudents: 44, avgAttempts: 1.0, skipped: 2 },
+  },
+  {
+    id: 9, poolId: "cumulative_density_pool_v1",
+    stem: "Identify the correct rate law expression for density rearrangement problems.",
+    learningObjectives: ["Rearrange the density equation to solve for mass or volume"],
+    attempts: 56, correctPct: 68,
+    answers: [
+      { text: "m = d × V", count: 38, correct: true },
+      { text: "V = m × d", count: 11, correct: false },
+      { text: "d = V / m", count: 5, correct: false },
+      { text: "No answer / skipped", count: 2, correct: false },
+    ],
+    details: { uniqueStudents: 50, avgAttempts: 1.1, skipped: 2 },
+  },
+  {
+    id: 10, poolId: "cumulative_density_pool_v1", type: "multi-input",
+    stem: "Given d = 0.85 g/mL and V = 200 mL, calculate and enter the mass, restate the density, and show your unit.",
+    learningObjectives: ["Apply the density equation to calculate mass, volume and density of a solid or liquid."],
+    attempts: 56, correctPct: 24,
+    inputs: [
+      { label: "Mass (g)", expected: "170", correctPct: 38, commonErrors: ["235 (divided instead of multiplied)", "0.004 (inverted)", "200 (used volume)"] },
+      { label: "Density (g/mL)", expected: "0.85", correctPct: 62, commonErrors: ["85 (missing decimal)", "850 (unit conversion error)"] },
+      { label: "Unit label", expected: "g", correctPct: 55, commonErrors: ["kg", "g/mL (density unit reused)", "Left blank"] },
+    ],
+    multiInputSummary: { allFieldsCorrect: 24, atLeastOneCorrect: 74, avgFieldsCorrect: 1.5 },
+    details: { uniqueStudents: 50, avgAttempts: 2.6, skipped: 3 },
+  },
+];
+
+const ACTIVITY_ITEMS_BY_OBJECTIVE = {
+  "lo-density": DENSITY_QUESTION_ITEMS,
+};
+
+function getActivityItems(objective) {
+  if (ACTIVITY_ITEMS_BY_OBJECTIVE[objective.id]) return ACTIVITY_ITEMS_BY_OBJECTIVE[objective.id];
+  if (!objective.activities) return [];
+  return objective.activities.map((a, i) => ({
+    id: i + 1,
+    poolId: a.name.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 30),
+    stem: a.name.split(":").slice(1).join(":").trim() || a.name,
+    learningObjectives: [objective.title],
+    attempts: Math.round(30 * (a.completion / 100) * 1.8),
+    correctPct: a.correctness,
+    answers: [
+      { text: "Correct response", count: Math.round(30 * a.correctness / 100), correct: true },
+      { text: "Common incorrect response", count: Math.round(30 * (100 - a.correctness) / 200), correct: false },
+      { text: "Other incorrect response", count: Math.round(30 * (100 - a.correctness) / 300), correct: false },
+      { text: "No answer / skipped", count: 2, correct: false },
+    ],
+    details: { uniqueStudents: Math.round(30 * a.completion / 100), avgAttempts: 1.2, skipped: 2 },
+  }));
+}
+
+function isWeakActivity(correctPct) {
+  return correctPct < WEAK_CORRECT_THRESHOLD;
+}
+
+// Activity-level summary for the density objective (LO 1).
 const DENSITY_ACTIVITIES = [
   { name: "Activity 1: Density Basics Quiz", type: "Quiz", completion: 93, correctness: 71 },
   { name: "Activity 2: Mass & Volume Lab", type: "Lab", completion: 88, correctness: 64 },
@@ -262,8 +426,22 @@ function MiniDistBar({ dist, width = 96, caption = false }) {
   );
 }
 
-// Stub link to the activity's detail page (Scored Activities in real Torus).
-function ActivityLink({ name, style }) {
+// Stub link — navigates to the activity detail view when a handler is provided.
+function ActivityLink({ name, onNavigate, style }) {
+  if (onNavigate) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onNavigate(); }}
+        style={{
+          fontFamily: T.font, background: "none", border: "none", padding: 0, cursor: "pointer",
+          color: T.link, fontWeight: 600, textDecoration: "none", ...style,
+        }}
+      >
+        {name}
+      </button>
+    );
+  }
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   return (
     <a
@@ -715,7 +893,7 @@ function InsightStrip({ objective, roster, onViewStruggling, onReviewActivity, o
       action: { label: "View Students", onClick: onViewStruggling },
     },
     weakest && {
-      text: <>Lowest-performing activity: <ActivityLink name={weakest.name} /> — {weakest.correctness}% correctness, {weakest.completion}% completion.</>,
+      text: <>Lowest-performing activity: <ActivityLink name={weakest.name} onNavigate={onReviewActivity} /> — {weakest.correctness}% correctness, {weakest.completion}% completion.</>,
       action: { label: "Review Activity", onClick: onReviewActivity },
     },
     lowAttempts > 0 && {
@@ -751,7 +929,7 @@ function InsightStrip({ objective, roster, onViewStruggling, onReviewActivity, o
 // Sub-objectives table
 // ---------------------------------------------------------------------------
 
-function SubObjectivesTable({ subObjectives, defaultExpandAll = false }) {
+function SubObjectivesTable({ subObjectives, onViewActivities, defaultExpandAll = false }) {
   const [expanded, setExpanded] = useState(
     () => new Set(defaultExpandAll ? subObjectives.map((_, i) => i) : []),
   );
@@ -800,6 +978,7 @@ function SubObjectivesTable({ subObjectives, defaultExpandAll = false }) {
                 sub={sub} index={i} open={open} lowN={lowN} weakest={weakest}
                 onToggle={() => toggle(i)}
                 td={td}
+                onViewActivities={onViewActivities}
               />
             );
           })}
@@ -809,7 +988,7 @@ function SubObjectivesTable({ subObjectives, defaultExpandAll = false }) {
   );
 }
 
-function SubObjectiveRows({ sub, index, open, lowN, weakest, onToggle, td }) {
+function SubObjectiveRows({ sub, index, open, lowN, weakest, onToggle, td, onViewActivities }) {
   return (
     <>
       <tr
@@ -856,7 +1035,7 @@ function SubObjectiveRows({ sub, index, open, lowN, weakest, onToggle, td }) {
                   return (
                     <div key={a.name} style={{ display: "flex", alignItems: "baseline", gap: 10, fontSize: 12.5 }}>
                       <span style={{ color: T.textMuted }}>•</span>
-                      <ActivityLink name={a.name} style={{ minWidth: 200 }} />
+                      <ActivityLink name={a.name} onNavigate={onViewActivities} style={{ minWidth: 200 }} />
                       <span style={{
                         fontSize: 10.5, fontWeight: 600, padding: "1px 8px", borderRadius: 999,
                         background: "#e6e7ec", color: T.textLow,
@@ -892,12 +1071,9 @@ function SubObjectiveRows({ sub, index, open, lowN, weakest, onToggle, td }) {
 // Learning objective row (collapsed + expanded)
 // ---------------------------------------------------------------------------
 
-function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onSelectBucket }) {
+function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onSelectBucket, onViewActivities }) {
   const roster = ROSTERS[objective.id];
   const [showHowEstimated, setShowHowEstimated] = useState(false);
-  // Remount key + flag to open every sub-objective's activity list at once.
-  const [subsKey, setSubsKey] = useState(0);
-  const [subsExpandAll, setSubsExpandAll] = useState(false);
 
   const bucketStudents = useMemo(
     () => (selectedBucket ? roster.filter((s) => s.bucket === selectedBucket) : []),
@@ -912,9 +1088,7 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
     if (!expanded) onToggleExpand();
   };
   const openActivities = () => {
-    if (!expanded) onToggleExpand();
-    setSubsExpandAll(true);
-    setSubsKey((k) => k + 1);
+    onViewActivities(objective.id);
   };
 
   // Clickable summary pills — each jumps to the matching detail.
@@ -1042,9 +1216,8 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
                   Sub-objectives
                 </div>
                 <SubObjectivesTable
-                  key={subsKey}
                   subObjectives={objective.subObjectives}
-                  defaultExpandAll={subsExpandAll}
+                  onViewActivities={() => onViewActivities(objective.id)}
                 />
               </div>
 
@@ -1058,10 +1231,357 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
 }
 
 // ---------------------------------------------------------------------------
+// Objective activity detail view (Figma node 108-4508)
+// ---------------------------------------------------------------------------
+
+function MultiInputAnalysis({ item }) {
+  const weakest = item.inputs.reduce((min, f) => (f.correctPct < min.correctPct ? f : min), item.inputs[0]);
+  const { multiInputSummary: s } = item;
+  const neutralBar = "#b8bac4";
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        {[
+          { label: "All fields correct", value: `${s.allFieldsCorrect}%` },
+          { label: "At least one correct", value: `${s.atLeastOneCorrect}%` },
+          { label: "Avg fields correct", value: s.avgFieldsCorrect.toFixed(1) },
+        ].map((stat) => (
+          <div key={stat.label} style={{
+            border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 14px", minWidth: 130,
+          }}>
+            <div style={{ fontSize: 11, color: T.textMuted }}>{stat.label}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: T.textHigh }}>{stat.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <div style={{
+          fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: "uppercase",
+          letterSpacing: 0.5, marginBottom: 10,
+        }}>
+          Performance by input field
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {item.inputs.map((field) => {
+            const isWeakest = field === weakest;
+            return (
+              <div key={field.label} style={{
+                border: `1px solid ${T.border}`,
+                borderLeft: isWeakest ? `3px solid ${T.danger}` : `1px solid ${T.border}`,
+                borderRadius: 6, padding: "10px 14px", background: "#fff",
+              }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+                  <span style={{ fontWeight: 600, color: T.textHigh, fontSize: 13 }}>{field.label}</span>
+                  <span style={{ fontSize: 11.5, color: T.textMuted }}>
+                    Expected: {field.expected}
+                  </span>
+                  {isWeakest && (
+                    <span style={{ fontSize: 11, color: T.danger, marginLeft: "auto", fontWeight: 600 }}>
+                      Focus here
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ flex: 1, height: 6, borderRadius: 999, background: T.rowStripe, overflow: "hidden" }}>
+                    <div style={{
+                      height: "100%", width: `${field.correctPct}%`, borderRadius: 999,
+                      background: isWeakest ? T.danger : neutralBar,
+                    }} />
+                  </div>
+                  <span style={{
+                    fontWeight: 600, fontSize: 13, width: 40, textAlign: "right",
+                    color: isWeakest ? T.danger : T.textLow,
+                  }}>
+                    {field.correctPct}%
+                  </span>
+                </div>
+                <div style={{ marginTop: 6, fontSize: 12, color: T.textMuted }}>
+                  Common errors: {field.commonErrors.join(" · ")}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ fontSize: 12.5, color: T.textMuted, lineHeight: 1.5 }}>
+        Multi-input questions are scored field by field.
+        {isWeakActivity(item.correctPct) && (
+          <> Review <strong style={{ color: T.danger, fontWeight: 600 }}>{weakest.label}</strong> first ({weakest.correctPct}% correct).</>
+        )}
+      </div>
+
+      <div style={{ fontSize: 12, color: T.textMuted }}>
+        {item.details.uniqueStudents} unique students · {item.details.avgAttempts} avg attempts · {item.details.skipped} skipped
+      </div>
+    </div>
+  );
+}
+
+function AnswerDistribution({ answers, highlightWrong }) {
+  const total = answers.reduce((s, a) => s + a.count, 0) || 1;
+  const topWrong = highlightWrong
+    ? answers.filter((a) => !a.correct).reduce((max, a) => (!max || a.count > max.count ? a : max), null)
+    : null;
+  const neutralBar = "#b8bac4";
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {answers.map((a) => {
+        const pct = Math.round((a.count / total) * 100);
+        const emphasize = topWrong && a === topWrong;
+        return (
+          <div key={a.text} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12.5 }}>
+            <span style={{ flex: 1, color: emphasize ? T.textHigh : T.textLow, lineHeight: 1.4, fontWeight: emphasize ? 600 : 400 }}>
+              {a.text}
+              {a.correct && <span style={{ color: T.textMuted, fontWeight: 400 }}> · correct</span>}
+            </span>
+            <span style={{ width: 120, height: 6, borderRadius: 999, background: T.rowStripe, overflow: "hidden" }}>
+              <span style={{
+                display: "block", height: "100%", width: `${pct}%`, borderRadius: 999,
+                background: emphasize ? T.danger : neutralBar,
+              }} />
+            </span>
+            <span style={{
+              width: 36, textAlign: "right", fontWeight: 600,
+              color: emphasize ? T.danger : T.textMuted,
+            }}>
+              {pct}%
+            </span>
+            <span style={{ width: 48, textAlign: "right", color: T.textMuted, fontSize: 11.5 }}>
+              n={a.count}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ActivityQuestionRow({ item, index, open, onToggle }) {
+  const weak = isWeakActivity(item.correctPct);
+  const isMultiInput = item.type === "multi-input";
+  const td = { padding: "11px 12px", fontSize: 13, color: T.textLow, verticalAlign: "top" };
+  const wrongAnswers = item.answers?.filter((a) => !a.correct) ?? [];
+  const topWrong = wrongAnswers.length
+    ? wrongAnswers.reduce((max, a) => (a.count > max.count ? a : max), wrongAnswers[0])
+    : null;
+
+  return (
+    <>
+      <tr
+        onClick={onToggle}
+        style={{
+          background: open ? T.rowStripe : index % 2 === 0 ? "#fff" : T.rowStripe,
+          cursor: "pointer",
+        }}
+      >
+        <td style={{ ...td, width: 36, color: T.textMuted, fontSize: 11 }}>
+          {open ? "⌃" : "⌄"}
+        </td>
+        <td style={{ ...td, width: 40, fontWeight: 700, color: T.textHigh }}>{item.id}</td>
+        <td style={td}>
+          <div style={{ fontSize: 11.5, color: T.textMuted, fontFamily: "monospace", marginBottom: 3 }}>
+            {item.poolId}:
+          </div>
+          <div style={{ fontWeight: 600, color: T.textHigh, lineHeight: 1.45 }}>{item.stem}</div>
+          {(isMultiInput || weak) && (
+            <div style={{ fontSize: 11.5, color: T.textMuted, marginTop: 4 }}>
+              {isMultiInput && "Multi-input"}
+              {isMultiInput && weak && " · "}
+              {weak && <span style={{ color: T.danger, fontWeight: 600 }}>Needs attention</span>}
+            </div>
+          )}
+        </td>
+        <td style={{ ...td, maxWidth: 280 }}>
+          {item.learningObjectives.length === 0 ? (
+            <span style={{ color: T.textMuted, fontStyle: "italic" }}>—</span>
+          ) : (
+            item.learningObjectives.map((lo) => (
+              <div key={lo} style={{ fontSize: 12.5, lineHeight: 1.45, marginBottom: 4 }}>{lo}</div>
+            ))
+          )}
+        </td>
+        <td style={{ ...td, width: 90, fontWeight: 700, textAlign: "center" }}>{item.attempts}</td>
+        <td style={{
+          ...td, width: 90, fontWeight: 700, textAlign: "center",
+          color: weak ? T.danger : T.textHigh,
+        }}>
+          {item.correctPct}%
+        </td>
+      </tr>
+      {open && (
+        <tr>
+          <td colSpan={6} style={{ padding: 0, background: "#fff" }}>
+            <div style={{ padding: "14px 16px 16px 52px", borderTop: `1px solid ${T.border}` }}>
+              {isMultiInput ? (
+                <MultiInputAnalysis item={item} />
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 24 }}>
+                  <div>
+                    <div style={{
+                      fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: "uppercase",
+                      letterSpacing: 0.5, marginBottom: 10,
+                    }}>
+                      Answer distribution
+                    </div>
+                    <AnswerDistribution answers={item.answers} highlightWrong={weak} />
+                  </div>
+                  <div>
+                    <div style={{
+                      fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: "uppercase",
+                      letterSpacing: 0.5, marginBottom: 10,
+                    }}>
+                      Details
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: T.textMuted }}>
+                      <div>{item.details.uniqueStudents} unique students attempted</div>
+                      <div>{item.details.avgAttempts} avg attempts per student</div>
+                      <div>{item.details.skipped} skipped / no answer</div>
+                      {weak && topWrong && (
+                        <div style={{ marginTop: 6, color: T.danger }}>
+                          Most common wrong answer: “{topWrong.text}”
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function ObjectiveActivitiesView({ objective, onBack }) {
+  const items = getActivityItems(objective);
+  const [filter, setFilter] = useState("all");
+  const weakItems = items.filter((i) => isWeakActivity(i.correctPct));
+  const visibleItems = filter === "weak" ? weakItems : items;
+
+  const [expanded, setExpanded] = useState(() => new Set());
+
+  const weakCount = weakItems.length;
+
+  const toggle = (id) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const th = {
+    textAlign: "left", fontSize: 12.5, fontWeight: 700, color: T.textHigh,
+    padding: "10px 14px", borderBottom: `1px solid ${T.border}`, background: "#fff",
+  };
+
+  const filterBtn = (id, label) => {
+    const active = filter === id;
+    const isWeakFilter = id === "weak";
+    return (
+      <button
+        onClick={() => setFilter(id)}
+        style={{
+          fontFamily: T.font, cursor: "pointer", fontSize: 12.5, fontWeight: active ? 700 : 400,
+          padding: "6px 14px", borderRadius: 6,
+          border: isWeakFilter
+            ? `1px solid ${active ? T.danger : "#f0a6ab"}`
+            : `1px solid ${T.border}`,
+          background: isWeakFilter && active ? T.dangerFill : active ? T.rowStripe : "#fff",
+          color: isWeakFilter ? T.danger : T.textLow,
+        }}
+      >
+        {label}
+      </button>
+    );
+  };
+
+  return (
+    <div style={{ maxWidth: 1280, margin: "0 auto", padding: "16px 24px 64px" }}>
+      <div style={{ background: T.bgSecondary, borderRadius: 16, boxShadow: T.shadow, padding: 24 }}>
+        <LinkButton onClick={onBack} style={{ fontSize: 13, marginBottom: 16, display: "inline-block" }}>
+          ‹ Back to Learning Objectives
+        </LinkButton>
+
+        <h2 style={{ margin: "0 0 16px", fontSize: 20, fontWeight: 700, color: T.textHigh, lineHeight: 1.4, maxWidth: 900 }}>
+          {objective.title}
+        </h2>
+
+        {weakCount > 0 && filter !== "weak" && (
+          <div style={{
+            border: `1px solid ${T.border}`, borderRadius: 6, padding: "8px 14px", marginBottom: 14,
+            fontSize: 12.5, color: T.textMuted,
+          }}>
+            <span style={{ color: T.danger, fontWeight: 600 }}>{weakCount}</span>
+            {" "}question{weakCount === 1 ? "" : "s"} below {WEAK_CORRECT_THRESHOLD}% correct.
+            {" "}Use <strong style={{ color: T.textLow, fontWeight: 600 }}>Needs attention</strong> to focus.
+          </div>
+        )}
+
+        {items.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+            {filterBtn("all", `All questions (${items.length})`)}
+            {filterBtn("weak", `Needs attention (${weakCount})`)}
+            {filter === "weak" && (
+              <span style={{ fontSize: 12, color: T.textMuted, marginLeft: 4 }}>
+                Sorted by lowest % correct
+              </span>
+            )}
+          </div>
+        )}
+
+        {items.length === 0 ? (
+          <div style={{ fontSize: 13, color: T.textMuted, fontStyle: "italic" }}>
+            Activity-level details for this objective are available in the Scored Activities tab.
+          </div>
+        ) : visibleItems.length === 0 ? (
+          <div style={{ fontSize: 13, color: T.textMuted, fontStyle: "italic", padding: 16 }}>
+            No questions match this filter.
+          </div>
+        ) : (
+          <div style={{ border: `1px solid ${T.border}`, borderRadius: 6, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={{ ...th, width: 36 }} />
+                  <th style={{ ...th, width: 40 }}># ⌄</th>
+                  <th style={th}>Question Stem ⌄</th>
+                  <th style={{ ...th, width: 280 }}>Learning Objectives ⌄</th>
+                  <th style={{ ...th, width: 90, textAlign: "center" }}>Attempts ⌄</th>
+                  <th style={{ ...th, width: 90, textAlign: "center" }}>% Correct ⌄</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...visibleItems]
+                  .sort((a, b) => filter === "weak" ? a.correctPct - b.correctPct : a.id - b.id)
+                  .map((item, i) => (
+                  <ActivityQuestionRow
+                    key={item.id}
+                    item={item}
+                    index={i}
+                    open={expanded.has(item.id)}
+                    onToggle={() => toggle(item.id)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Learning Objectives card
 // ---------------------------------------------------------------------------
 
-function LearningObjectivesCard() {
+function LearningObjectivesCard({ onViewActivities }) {
   const [search, setSearch] = useState("");
   const [proficiencyFilter, setProficiencyFilter] = useState("All");
   const [expandedIds, setExpandedIds] = useState(new Set(["lo-density"]));
@@ -1279,6 +1799,7 @@ function LearningObjectivesCard() {
                   onToggleExpand={() => toggleExpand(lo.id)}
                   selectedBucket={bucketSelections[lo.id] ?? null}
                   onSelectBucket={(b) => selectBucketFor(lo.id, b)}
+                  onViewActivities={onViewActivities}
                 />
               ))}
             </tbody>
@@ -1294,12 +1815,24 @@ function LearningObjectivesCard() {
 // ---------------------------------------------------------------------------
 
 export default function App() {
+  const [activityObjectiveId, setActivityObjectiveId] = useState(null);
+  const activityObjective = OBJECTIVES.find((o) => o.id === activityObjectiveId);
+
   return (
     <div style={{ fontFamily: T.font, background: T.bgPrimary, minHeight: "100vh", color: T.textHigh }}>
       <TopNav />
       <InsightsTabs />
-      <ModulePager />
-      <LearningObjectivesCard />
+      {activityObjective ? (
+        <ObjectiveActivitiesView
+          objective={activityObjective}
+          onBack={() => setActivityObjectiveId(null)}
+        />
+      ) : (
+        <>
+          <ModulePager />
+          <LearningObjectivesCard onViewActivities={setActivityObjectiveId} />
+        </>
+      )}
     </div>
   );
 }
