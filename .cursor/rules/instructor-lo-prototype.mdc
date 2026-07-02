@@ -1,0 +1,64 @@
+---
+description: Usability testing prototype guidelines for Instructor Learning Objectives (Torus)
+alwaysApply: true
+---
+
+# Instructor Learning Objectives Prototype
+
+High-fidelity **usability testing prototype** for Torus Instructor Learning Objectives and Learning Proficiency. Validate workflows, IA, terminology, hierarchy, and interactions — not production implementation.
+
+**Optimize for:** clarity, consistency, realistic workflows, testability.
+**When tradeoffs arise:** preserve intended user flow over visual fidelity or technical sophistication.
+**Never** invent new UX patterns without explicit instruction.
+
+## User Questions the Prototype Must Support
+
+1. Which learning objectives need my attention?
+2. Which students are struggling?
+3. Why are they struggling?
+4. What should I do next?
+5. Which activities should I investigate or revise?
+
+Help instructors move: **awareness → investigation → action**.
+
+## Primary Navigation Flow (preserve unless instructed)
+
+```
+Dashboard → LO Detail → Student Investigation → Activity Investigation → Dashboard
+```
+
+Progressive drill-down into increasing detail. Every summary should lead somewhere:
+
+**Overview → Details → Evidence → Action**
+
+| Screen | Answers |
+|--------|---------|
+| Dashboard | "What should I focus on today?" |
+| LO Detail | "What is happening with this LO?" |
+| Student Investigation | "Which students need help?" |
+| Activity Investigation | "What should I revise or reinforce?" |
+
+## UX Principles
+
+- **Progressive disclosure** — reveal only when needed; never overwhelm
+- **Actionability** — every visualization supports a decision; no metrics without context
+- **Scanability** — key info visible in seconds (instructors have limited time)
+- **Consistency** — reuse existing cards, tables, charts, colors, badges, buttons, icons, spacing
+- **AI as assistant** — concise, evidence-backed recommendations; never replace instructor judgment
+
+## Design System & Implementation
+
+- Maintain existing typography, spacing, colors, icons, navigation, component styles
+- Do not redesign the visual language unless explicitly requested
+- Single-file prototype (`src/App.jsx`): inline styles, Torus tokens, hardcoded demo data OK
+- Avoid: complex state, backend, auth, real APIs, random/regenerating data
+- **Fake data must stay consistent** — a low student stays low across all screens
+- Reuse existing components; modify only the screen being discussed
+- When given Figma: treat as visual source of truth; preserve existing behavior unless design changes it
+- If ambiguous, preserve current behavior rather than inventing functionality
+
+## When Updating
+
+Modify layout, spacing, hierarchy, copy, or visuals — **not workflow** unless instructed.
+
+Ensure sufficient contrast, labels with icons where needed, clear hierarchy, and proficiency not conveyed by color alone.
