@@ -20,8 +20,77 @@ const T = {
   tableSelect: "#deecff",
   tableHover: "#f2f9ff",
   rowStripe: "#f3f4f8",
+  tableRow2: "#e3e7eb",
+  highlightCardBg: "#ffffff",
+  highlightCardBorder: "#ced1d9",
+  highlightCardText: "#353740",
+  highlightCardSubtext: "#757682",
+  buttonBorderBold: "#8ab8e5",
+  buttonShadow: "0 2px 4px rgba(0, 52, 99, 0.10)",
+  pillShadow: "0 2px 4px rgba(0, 52, 99, 0.10)",
   shadow: "0 2px 10px rgba(0, 50, 99, 0.10)",
 };
+
+// Figma dashboard table uses Low / Medium / High labels on proficiency pills.
+const CHIP_FIGMA = {
+  "Needs Attention": { label: "Low", bg: T.dangerFill, color: "#b60202", warn: true, chevron: false },
+  "Watch": { label: "Medium", bg: "#ffecde", color: "#91450e", warn: false, chevron: true },
+  "On Track": { label: "High", bg: "#e7fcf3", color: "#175a3d", warn: false, chevron: false },
+  "Not enough data": { label: "Not enough data", bg: "#ced1d9", color: "#000", warn: false, chevron: true },
+};
+
+const DIST_BAR_COLORS = ["#c2c2c2", "#ce2c31", "#bf5b13", "#218358"];
+
+// Expanded-detail bucket card labels (Figma expanded LO view).
+const BUCKET_CARD_LABELS = {
+  none: "Not Enough Data",
+  low: "Low Proficiency",
+  medium: "Medium Proficiency",
+  high: "High Proficiency",
+};
+
+const PROFICIENCY_ESTIMATE_INTRO =
+  "Proficiency is our best estimate of how likely students are to successfully demonstrate the skills associated with a learning objective based on evidence collected from related learning activities. As students complete more practice and assessments, Torus continuously updates this estimate using their successes, mistakes, and practice history. Proficiency is an estimate and becomes more reliable as more evidence is collected.";
+
+const PROFICIENCY_ESTIMATE_LEVELS = [
+  {
+    label: "Not Enough Data",
+    text: "There isn't enough evidence yet to estimate student proficiency. Encourage students to complete more learning activities before drawing conclusions.",
+  },
+  {
+    label: "Low Proficiency",
+    text: "Current evidence suggests students are unlikely to successfully demonstrate this learning objective without additional support or practice.",
+  },
+  {
+    label: "Medium Proficiency",
+    text: "Current evidence suggests students are developing this learning objective but may benefit from additional practice to build consistency.",
+  },
+  {
+    label: "High Proficiency",
+    text: "Current evidence suggests students are likely to successfully demonstrate this learning objective on future opportunities.",
+  },
+];
+
+function HowProficiencyEstimatedCard() {
+  const body = { fontSize: 12.5, color: T.textLow, lineHeight: "19.38px" };
+  return (
+    <div style={{
+      marginTop: 12, background: "#fff", border: `1px solid ${T.border}`,
+      borderRadius: 6, padding: "11px 15px", maxWidth: 640,
+      display: "flex", flexDirection: "column", gap: 8,
+    }}>
+      <p style={{ ...body, margin: 0 }}>{PROFICIENCY_ESTIMATE_INTRO}</p>
+      <div style={{ paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
+        {PROFICIENCY_ESTIMATE_LEVELS.map((level) => (
+          <p key={level.label} style={{ ...body, margin: 0 }}>
+            <strong style={{ fontWeight: 700, color: T.textLow }}>{level.label}: </strong>
+            {level.text}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // Proficiency buckets — presentation labels only; underlying buckets (and the
 // proficiency calculation) are unchanged. Colors match the Torus purple ramp.
@@ -31,7 +100,7 @@ const BUCKETS = [
     desc: "Student has not completed enough related activities for a reliable estimate.",
   },
   {
-    id: "low", label: "Needs Attention", panel: "Students Needing Attention", dot: "#ce2c31", seg: "#f0a6ab",
+    id: "low", label: "Needs Attention", panel: "Students with Low Estimated Proficiency", dot: "#ce2c31", seg: "#f0a6ab",
     desc: "Student performance and/or completion suggest intervention may be helpful.",
   },
   {
@@ -99,7 +168,7 @@ const DENSITY_QUESTION_ITEMS = [
     id: 2, poolId: "rearrange_density_pool_v2", type: "multi-input",
     stem: "A block has a volume of 4.0 cm³ and a mass of 12 g. Enter the mass, volume, and calculated density.",
     learningObjectives: ["Rearrange the density equation to solve for mass or volume"],
-    attempts: 56, correctPct: 25,
+    attempts: 56, correctPct: 25, firstTryPct: 25, eventualPct: 48,
     inputs: [
       { label: "Mass (g)", expected: "12", correctPct: 88, commonErrors: ["12 g entered correctly by most"] },
       { label: "Volume (cm³)", expected: "4.0", correctPct: 76, commonErrors: ["4 cm³ without decimal", "40 cm³ (unit error)"] },
@@ -112,7 +181,7 @@ const DENSITY_QUESTION_ITEMS = [
     id: 3, poolId: "rearrange_density_pool_v2",
     stem: "Rearrange d = m/V to solve for mass.",
     learningObjectives: ["Rearrange the density equation to solve for mass or volume"],
-    attempts: 54, correctPct: 42,
+    attempts: 54, correctPct: 42, firstTryPct: 12, eventualPct: 34,
     answers: [
       { text: "m = d × V", count: 23, correct: true },
       { text: "m = V / d", count: 18, correct: false },
@@ -337,6 +406,34 @@ const OBJECTIVES = [
 // Low bucket; generated deterministically elsewhere.
 const FIGMA_LOW_ATTEMPTS = [3, 7, 6, 8, 1, 9, 9, 3, 5, 3, 3, 3, 3, 3];
 
+// Score ranges (percent) used to place dots along each bucket region in the scatterplot.
+const BUCKET_SCORE_RANGE = {
+  none: [5, 22],
+  low: [23, 46],
+  medium: [47, 74],
+  high: [75, 98],
+};
+
+// Deterministic scores for the density LO — includes intentional duplicates for stacking.
+const FIGMA_DENSITY_SCORES = {
+  none: [12, 12, 18],
+  low: [28, 28, 28, 28, 32, 32, 35, 35, 38, 38, 38, 38, 41, 41],
+  medium: [52, 52, 58, 58, 65, 68],
+  high: [78, 82, 82, 88, 88, 88, 95],
+};
+
+function proficiencyScoreFor(bucket, k, cursor, loIndex) {
+  if (loIndex === 0 && FIGMA_DENSITY_SCORES[bucket]?.[k] != null) {
+    return FIGMA_DENSITY_SCORES[bucket][k];
+  }
+  const [min, max] = BUCKET_SCORE_RANGE[bucket];
+  const span = max - min;
+  // Cluster ~every 4–5 points so several students share the same score.
+  const step = 4 + (cursor % 3);
+  const slot = Math.floor(k / 2);
+  return min + Math.min(span, (slot * step) % (span + 1));
+}
+
 function buildRoster(objective, loIndex) {
   const rotated = STUDENT_NAMES.map((_, i, arr) => arr[(i + loIndex * 7) % arr.length]);
   const roster = [];
@@ -364,7 +461,13 @@ function buildRoster(objective, loIndex) {
       const lastActivity = attempted === 0
         ? null
         : ["Today", "1 day ago", "2 days ago", "3 days ago", "5 days ago", "1 week ago"][cursor % 6];
-      roster.push({ id: `${objective.id}-${name}`, name, email: emailFor(name), bucket, attempted, correctness, lastActivity });
+      const proficiencyScore = bucket === "none"
+        ? proficiencyScoreFor("none", k, cursor, loIndex)
+        : proficiencyScoreFor(bucket, k, cursor, loIndex);
+      roster.push({
+        id: `${objective.id}-${name}`, name, email: emailFor(name), bucket,
+        attempted, correctness, lastActivity, proficiencyScore,
+      });
       cursor++;
     }
   });
@@ -380,17 +483,28 @@ const PRIORITY = { "Needs Attention": 0, "Not enough data": 1, "Watch": 2, "On T
 // Small shared pieces
 // ---------------------------------------------------------------------------
 
-function Chip({ label, scope }) {
-  const s = CHIP_STYLES[label];
+function Chip({ label, scope, variant = "default" }) {
+  const s = variant === "figma" ? CHIP_FIGMA[label] : CHIP_STYLES[label];
+  const displayLabel = variant === "figma" ? s.label : label;
   return (
     <span
       title={scope ? `${scope} ${CHIP_DESCRIPTIONS[label]}` : CHIP_DESCRIPTIONS[label]}
       style={{
-        display: "inline-block", background: s.bg, color: s.color, cursor: "help",
-        fontSize: 12, fontWeight: 600, padding: "3px 12px", borderRadius: 999, whiteSpace: "nowrap",
+        display: "inline-flex", alignItems: "center", gap: 8,
+        background: s.bg, color: s.color, cursor: "help",
+        fontSize: variant === "figma" ? 16 : 12,
+        fontWeight: 600, padding: variant === "figma" ? "4px 16px" : "3px 12px",
+        borderRadius: 999, whiteSpace: "nowrap",
+        boxShadow: variant === "figma" ? T.pillShadow : "none",
       }}
     >
-      {label}
+      {variant === "figma" && s.warn && (
+        <span style={{ fontSize: 14, lineHeight: 1 }} aria-hidden>⚠</span>
+      )}
+      {displayLabel}
+      {variant === "figma" && s.chevron && (
+        <span style={{ fontSize: 10, opacity: 0.7 }} aria-hidden>⌄</span>
+      )}
     </span>
   );
 }
@@ -398,19 +512,26 @@ function Chip({ label, scope }) {
 // Mini segmented distribution bar — matches the existing Torus row pattern.
 // Each segment carries a tooltip (count, %, and what the level means); the
 // optional caption surfaces the struggling share without hovering.
-function MiniDistBar({ dist, width = 96, caption = false }) {
+function MiniDistBar({ dist, width = 96, height = 14, caption = false, variant = "default" }) {
   const total = dist.reduce((a, b) => a + b, 0);
   const pct = (n) => Math.round((n / total) * 100);
+  const figma = variant === "figma";
   const bar = (
     <span style={{
-      display: "inline-flex", width, height: 14, borderRadius: 3, overflow: "hidden",
-      border: `1px solid ${T.border}`, background: "#fff", gap: 1, cursor: "help",
+      display: "inline-flex", width, height, overflow: "hidden",
+      border: figma ? "none" : `1px solid ${T.border}`,
+      background: figma ? "transparent" : "#fff",
+      gap: figma ? 2 : 1, cursor: "help",
     }}>
       {dist.map((n, i) => (
         <span
           key={BUCKETS[i].id}
           title={`${BUCKETS[i].label}: ${n} student${n === 1 ? "" : "s"} (${pct(n)}%) — ${BUCKETS[i].desc}`}
-          style={{ width: `${(n / total) * 100}%`, background: BUCKETS[i].seg }}
+          style={{
+            width: `${(n / total) * 100}%`,
+            background: figma ? DIST_BAR_COLORS[i] : BUCKETS[i].seg,
+            boxShadow: figma ? "inset 0 1px 7px rgba(0,0,0,0.25)" : "none",
+          }}
         />
       ))}
     </span>
@@ -528,15 +649,16 @@ function InsightsTabs() {
   const tabs = ["Content", "Learning Objectives", "Scored Activities", "Practice Activities", "Surveys"];
   return (
     <div style={{ borderBottom: `1px solid ${T.border}`, background: T.bgPrimary }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px", display: "flex", gap: 8 }}>
+      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px", display: "flex", gap: 0 }}>
         {tabs.map((tab) => {
           const active = tab === "Learning Objectives";
           return (
             <span key={tab} style={{
-              padding: "12px 12px", fontSize: 13, cursor: "pointer",
-              fontWeight: active ? 700 : 400,
-              color: active ? T.textHigh : T.textLow,
-              borderBottom: active ? `2px solid ${T.link}` : "2px solid transparent",
+              position: "relative",
+              padding: "16px 12px", fontSize: 14, cursor: "pointer",
+              fontWeight: active ? 600 : 400,
+              color: T.textHigh,
+              borderBottom: active ? `2px solid #0073e5` : "2px solid transparent",
             }}>
               {tab}
             </span>
@@ -551,16 +673,21 @@ function ModulePager() {
   return (
     <div style={{
       maxWidth: 1280, margin: "0 auto", padding: "18px 24px 4px",
-      display: "flex", alignItems: "center", justifyContent: "center", gap: 48,
+      display: "flex", alignItems: "center", justifyContent: "center", gap: 86,
     }}>
-      <span style={{ color: T.action, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>‹ Previous Module</span>
-      <span style={{
-        color: T.textHigh, fontSize: 16, fontWeight: 700,
-        borderBottom: `2px solid ${T.textHigh}`, paddingBottom: 2, cursor: "pointer",
-      }}>
-        Module 2: Reaction Rates <span style={{ fontSize: 11 }}>⌄</span>
+      <span style={{ color: "#0073e5", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 16 }}>‹</span> Previous Module
       </span>
-      <span style={{ color: T.action, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>Next Module ›</span>
+      <span style={{
+        color: T.textHigh, fontSize: 18, fontWeight: 700,
+        borderBottom: `2px solid #0073e5`, paddingBottom: 4, cursor: "pointer",
+        display: "inline-flex", alignItems: "center", gap: 8, minWidth: 280, justifyContent: "center",
+      }}>
+        Module 2: Reaction Rates <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span>
+      </span>
+      <span style={{ color: T.action, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
+        Next Module <span style={{ fontSize: 16 }}>›</span>
+      </span>
     </div>
   );
 }
@@ -569,58 +696,97 @@ function ModulePager() {
 // Clickable proficiency bucket cards
 // ---------------------------------------------------------------------------
 
+function SecondaryActionButton({ children, onClick, icon }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        fontFamily: T.font, cursor: "pointer", background: "#fff",
+        border: `1px solid ${T.buttonBorderBold}`, color: T.action, borderRadius: 6,
+        padding: "8px 24px", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap",
+        boxShadow: T.buttonShadow, display: "inline-flex", alignItems: "center", gap: 8,
+      }}
+    >
+      {icon && <span style={{ fontSize: 16, lineHeight: 1 }} aria-hidden>{icon}</span>}
+      {children}
+    </button>
+  );
+}
+
 function ProficiencyBuckets({ roster, selectedBucket, onSelectBucket }) {
   const counts = BUCKETS.map((b) => roster.filter((s) => s.bucket === b.id).length);
   const total = roster.length;
 
-  // Dot-strip scatterplot (the production Torus pattern): each dot is one
-  // student, stacked in columns within their proficiency region.
   const W = 1000, H = 110, GAP = 8;
   const WEIGHTS = [0.16, 0.4, 0.22, 0.22];
-  const PER_COL = 4;
-  const trackY = 94;
+  const TRACK_Y = 94;
+  const BAR_H = 8;
+  const DOT_R = 4.5;
+  const STACK_GAP = 14;
+  const MAX_STACK = 5;
+
   let cursor = 0;
   const regions = BUCKETS.map((b, i) => {
     const w = WEIGHTS[i] * (W - GAP * (BUCKETS.length - 1));
-    const r = { ...b, x: cursor, w, count: counts[i] };
+    const students = roster.filter((s) => s.bucket === b.id);
+    const r = { ...b, x: cursor, w, count: counts[i], students };
     cursor += w + GAP;
     return r;
   });
 
+  const scoreToX = (score, region) => {
+    const [min, max] = BUCKET_SCORE_RANGE[region.id];
+    const pad = 22;
+    const t = Math.max(0, Math.min(1, (score - min) / (max - min)));
+    return region.x + pad + t * (region.w - pad * 2);
+  };
+
+  const dotsForRegion = (region) => {
+    const groups = new Map();
+    region.students.forEach((s) => {
+      const key = s.proficiencyScore;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(s);
+    });
+    const dots = [];
+    [...groups.entries()]
+      .sort(([a], [b]) => a - b)
+      .forEach(([score, group]) => {
+        const cx = scoreToX(score, region);
+        group.slice(0, MAX_STACK).forEach((student, j) => {
+          dots.push({ cx, cy: TRACK_Y - 12 - j * STACK_GAP, student, score });
+        });
+      });
+    return dots;
+  };
+
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block", marginBottom: 10 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block", marginBottom: 24 }}>
         {regions.map((r) => {
           const dim = selectedBucket && selectedBucket !== r.id;
           const selected = selectedBucket === r.id;
-          const cols = Math.max(1, Math.ceil(r.count / PER_COL));
-          const padX = 24;
-          const colSpacing = cols > 1 ? (r.w - padX * 2) / (cols - 1) : 0;
-          const dots = [];
-          for (let j = 0; j < r.count; j++) {
-            dots.push({
-              cx: cols > 1 ? r.x + padX + Math.floor(j / PER_COL) * colSpacing : r.x + r.w / 2,
-              cy: trackY - 12 - (j % PER_COL) * 14,
-            });
-          }
+          const dots = dotsForRegion(r);
           return (
             <g
               key={r.id}
               onClick={() => onSelectBucket(selected ? null : r.id)}
               style={{ cursor: "pointer", opacity: dim ? 0.35 : 1, transition: "opacity 0.15s" }}
             >
-              <title>{`${r.label}: ${r.count} students (${Math.round((r.count / total) * 100)}%)`}</title>
+              <title>{`${BUCKET_CARD_LABELS[r.id]}: ${r.count} students (${Math.round((r.count / total) * 100)}%)`}</title>
               {selected && (
                 <rect
                   x={r.x - 2} y={4} width={r.w + 4} height={H - 8} rx={8}
                   fill="rgba(0,108,217,0.05)" stroke={T.action} strokeWidth="1.5"
                 />
               )}
-              <rect x={r.x} y={trackY} width={r.w} height={8} rx={4} fill={r.seg} />
+              <rect x={r.x} y={TRACK_Y} width={r.w} height={BAR_H} rx={4} fill={r.seg} />
               {dots.map((d, k) => (
-                <circle key={k} cx={d.cx} cy={d.cy} r={4.5} fill={r.dot} />
+                <g key={`${d.student.id}-${k}`}>
+                  <title>{`${d.student.name}: ${d.score}% proficiency`}</title>
+                  <circle cx={d.cx} cy={d.cy} r={DOT_R} fill={r.dot} />
+                </g>
               ))}
-              {/* invisible hit area so empty space is clickable too */}
               <rect x={r.x} y={0} width={r.w} height={H} fill="transparent" />
             </g>
           );
@@ -630,6 +796,10 @@ function ProficiencyBuckets({ roster, selectedBucket, onSelectBucket }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
         {BUCKETS.map((b, i) => {
           const selected = selectedBucket === b.id;
+          const pct = Math.round((counts[i] / total) * 100);
+          const footer = b.id === "low"
+            ? `${pct}% of class`
+            : `${pct}% of class · view students`;
           return (
             <button
               key={b.id}
@@ -639,17 +809,17 @@ function ProficiencyBuckets({ roster, selectedBucket, onSelectBucket }) {
                 fontFamily: T.font, cursor: "pointer", textAlign: "left",
                 background: selected ? T.tableSelect : "#fff",
                 border: selected ? `1.5px solid ${T.action}` : `1px solid ${T.border}`,
-                borderRadius: 8, padding: selected ? "11.5px 13.5px" : "12px 14px",
+                borderRadius: 8, padding: selected ? "12px 14px" : "13px 15px",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <span style={{ width: 10, height: 10, borderRadius: "50%", background: b.dot, flexShrink: 0 }} />
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: T.textHigh }}>{b.label}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 5, background: b.dot, flexShrink: 0 }} />
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: T.textHigh }}>
+                  {BUCKET_CARD_LABELS[b.id]}
+                </span>
               </div>
-              <div style={{ marginTop: 6, fontSize: 21, fontWeight: 700, color: T.textHigh }}>{counts[i]}</div>
-              <div style={{ fontSize: 11.5, color: T.textMuted }}>
-                {Math.round((counts[i] / total) * 100)}% of class · {selected ? "click to clear" : "view students"}
-              </div>
+              <div style={{ fontSize: 21, fontWeight: 700, color: T.textHigh }}>{counts[i]}</div>
+              <div style={{ fontSize: 11.5, color: T.textMuted, marginTop: 2 }}>{footer}</div>
             </button>
           );
         })}
@@ -742,12 +912,38 @@ function TrendSection({ trend }) {
 // Students panel (appears when a bucket is selected)
 // ---------------------------------------------------------------------------
 
+function studentProfileHref(student) {
+  const slug = student.id.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  return `#/students/${slug}`;
+}
+
+function StudentAvatar({ name }) {
+  const initials = name.split(", ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+  return (
+    <span style={{
+      width: 24, height: 24, borderRadius: "50%", border: `1px solid ${T.border}`,
+      background: T.rowStripe, color: T.textMuted, fontSize: 9, fontWeight: 700,
+      display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+    }}>
+      {initials}
+    </span>
+  );
+}
+
+// Low-proficiency students who attempted most related activities — conceptual gap signal.
+function isHighActivityLowProficiency(student, totalActivities) {
+  return student.bucket === "low" && totalActivities > 0
+    && student.attempted / totalActivities >= 0.6;
+}
+
 function StudentsPanel({ objective, bucketId, students, onClose }) {
   const bucket = BUCKETS.find((b) => b.id === bucketId);
-  // All selected by default; remounted (via key) when the bucket changes.
   const [selected, setSelected] = useState(() => new Set(students.map((s) => s.id)));
   const allChecked = students.length > 0 && students.every((s) => selected.has(s.id));
   const selectedCount = students.filter((s) => selected.has(s.id)).length;
+  const highActivityStudents = students.filter(
+    (s) => isHighActivityLowProficiency(s, objective.activitiesCount),
+  );
 
   const onToggle = (id) => {
     setSelected((prev) => {
@@ -768,24 +964,24 @@ function StudentsPanel({ objective, bucketId, students, onClose }) {
   };
 
   const th = {
-    textAlign: "left", fontSize: 12, fontWeight: 700, color: T.textHigh,
-    padding: "9px 12px", background: "#fff", borderBottom: `1px solid ${T.border}`,
-    position: "sticky", top: 0,
+    textAlign: "left", fontSize: 16, fontWeight: 600, color: T.textHigh,
+    padding: "10px", background: "#fff", borderBottom: `1px solid ${T.border}`,
+    height: 50, verticalAlign: "middle",
   };
-  const td = { padding: "8px 12px", fontSize: 13, color: T.textLow };
+  const td = { padding: "10px", fontSize: 16, color: T.textLow, verticalAlign: "middle" };
 
   return (
-    <div style={{ border: `1px solid ${T.border}`, borderRadius: 6, background: "#fff", overflow: "hidden" }}>
+    <div style={{ border: `1px solid ${T.border}`, borderRadius: 9, background: "#fff", overflow: "hidden" }}>
       <div style={{
-        display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
-        borderBottom: `1px solid ${T.border}`, flexWrap: "wrap",
+        display: "flex", alignItems: "center", gap: 12, padding: "8px",
+        borderBottom: `1px solid ${T.border}`, minHeight: 62,
       }}>
-        <span style={{ fontSize: 13.5, fontWeight: 700, color: T.textHigh }}>
+        <span style={{ fontSize: 16, fontWeight: 600, color: "#373a44" }}>
           {bucket.panel}
         </span>
         <span style={{
-          fontSize: 12, fontWeight: 700, color: T.textLow, background: T.rowStripe,
-          borderRadius: 999, padding: "2px 10px",
+          fontSize: 12, fontWeight: 600, color: "#ff8787", background: "#33181a",
+          borderRadius: 999, padding: "4px 6px", lineHeight: 1,
         }}>
           {students.length}
         </span>
@@ -795,62 +991,114 @@ function StudentsPanel({ objective, bucketId, students, onClose }) {
             disabled={selectedCount === 0}
             style={{
               fontFamily: T.font, cursor: selectedCount === 0 ? "default" : "pointer",
-              background: selectedCount === 0 ? "#e6e7ec" : T.action,
+              background: selectedCount === 0 ? "#e6e7ec" : "#0062f2",
               color: selectedCount === 0 ? T.textMuted : "#fff",
-              border: "none", borderRadius: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 700,
-              boxShadow: selectedCount === 0 ? "none" : "0 2px 4px rgba(0,52,99,0.10)",
+              border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 14, fontWeight: 600,
+              boxShadow: selectedCount === 0 ? "none" : T.buttonShadow,
+              display: "inline-flex", alignItems: "center", gap: 8,
             }}
           >
-            ✉ Email Selected ({selectedCount})
+            ✉ Email <span style={{ fontSize: 12 }}>⌄</span>
           </button>
           <button
             onClick={onClose}
-            title="Clear selection"
+            title="Close"
             style={{
               fontFamily: T.font, cursor: "pointer", background: "none", border: "none",
-              color: T.textMuted, fontSize: 14, padding: 2,
+              color: T.textMuted, fontSize: 18, padding: 4, lineHeight: 1,
             }}
           >
-            ✕
+            ×
           </button>
         </div>
       </div>
 
-      <div style={{ maxHeight: 280, overflowY: "auto" }}>
+      {bucketId === "low" && highActivityStudents.length > 0 && (
+        <div style={{
+          padding: "10px 14px", borderBottom: `1px solid ${T.border}`,
+          background: T.dangerFill, borderLeft: `3px solid ${T.danger}`,
+          fontSize: 13, color: T.textLow, lineHeight: 1.5,
+        }}>
+          <strong style={{ color: T.danger }}>
+            {highActivityStudents.length} student{highActivityStudents.length === 1 ? "" : "s"}
+          </strong>
+          {" "}completed most related activities but still show low proficiency — this suggests a{" "}
+          <strong>conceptual gap</strong>, not a participation issue.
+        </div>
+      )}
+
+      <div style={{ maxHeight: 420, overflowY: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={{ ...th, width: 36 }}>
+              <th style={{ ...th, width: 49, textAlign: "center" }}>
                 <input type="checkbox" checked={allChecked} onChange={onToggleAll} style={{ accentColor: T.action, cursor: "pointer" }} />
               </th>
-              <th style={th}>Student Name ⌄</th>
-              <th style={th}>Activities Completed ⌄</th>
+              <th style={th}>Student Name <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span></th>
+              <th style={th}>Activities Attempted <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span></th>
               <th style={th}>Avg. Correctness</th>
               <th style={th}>Last Activity</th>
             </tr>
           </thead>
           <tbody>
-            {students.map((s, i) => (
-              <tr key={s.id} style={{ background: i % 2 === 0 ? T.rowStripe : "#fff" }}>
-                <td style={td}>
-                  <input
-                    type="checkbox"
-                    checked={selected.has(s.id)}
-                    onChange={() => onToggle(s.id)}
-                    style={{ accentColor: T.action, cursor: "pointer" }}
-                  />
-                </td>
-                <td style={{ ...td, fontWeight: 600, color: T.textHigh }}>{s.name}</td>
-                <td style={td}>
-                  <strong>{s.attempted} of {objective.activitiesCount}</strong>
-                  <span style={{ color: T.textMuted, marginLeft: 6 }}>
-                    ({Math.round((s.attempted / objective.activitiesCount) * 100)}%)
-                  </span>
-                </td>
-                <td style={td}>{s.correctness === null ? "—" : `${s.correctness}%`}</td>
-                <td style={td}>{s.lastActivity ?? "—"}</td>
-              </tr>
-            ))}
+            {students.map((s, i) => {
+              const highActivity = isHighActivityLowProficiency(s, objective.activitiesCount);
+              const attemptPct = Math.round((s.attempted / objective.activitiesCount) * 100);
+              return (
+                <tr
+                  key={s.id}
+                  style={{
+                    background: highActivity ? "#fff5f5" : i % 2 === 0 ? T.tableRow2 : T.rowStripe,
+                    borderTop: `1px solid ${T.border}`,
+                    boxShadow: highActivity ? `inset 3px 0 0 ${T.danger}` : "none",
+                  }}
+                >
+                  <td style={{ ...td, textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(s.id)}
+                      onChange={() => onToggle(s.id)}
+                      style={{ accentColor: T.action, cursor: "pointer" }}
+                    />
+                  </td>
+                  <td style={td}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <StudentAvatar name={s.name} />
+                      <a
+                        href={studentProfileHref(s)}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          color: T.action, fontWeight: 700, fontSize: 16,
+                          textDecoration: "none",
+                        }}
+                      >
+                        {s.name}
+                      </a>
+                      {highActivity && (
+                        <span
+                          title="Completed most activities but still low proficiency"
+                          style={{
+                            fontSize: 10, fontWeight: 700, color: T.danger,
+                            background: T.dangerFill, borderRadius: 999, padding: "2px 8px",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          High activity
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td style={{ ...td, color: T.textHigh }}>
+                    <strong>{s.attempted} of {objective.activitiesCount}</strong>
+                    <span style={{ color: T.textMuted, fontWeight: 400 }}> ({attemptPct}%)</span>
+                  </td>
+                  <td style={{ ...td, fontWeight: 700, color: T.textHigh }}>
+                    {s.correctness === null ? "—" : `${s.correctness}%`}
+                  </td>
+                  <td style={{ ...td, fontSize: 16, color: T.textLow }}>{s.lastActivity ?? "—"}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -859,67 +1107,83 @@ function StudentsPanel({ objective, bucketId, students, onClose }) {
 }
 
 // ---------------------------------------------------------------------------
-// Insight strip — only facts computable from the data
+// AI recommendation panel (Figma expanded LO view)
 // ---------------------------------------------------------------------------
-
-function ActionButton({ children, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        fontFamily: T.font, cursor: "pointer", flexShrink: 0,
-        background: "#fff", border: `1px solid ${T.action}`, color: T.action,
-        borderRadius: 6, padding: "4px 12px", fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-// Each insight carries its action — instructors act where they discover the problem.
-function InsightStrip({ objective, roster, onViewStruggling, onReviewActivity, onEmailStruggling }) {
+function AIRecommendation({ objective, roster, onViewStruggling, onReviewActivity, onEmailStruggling }) {
+  const [dismissed, setDismissed] = useState(false);
   const lowCount = roster.filter((s) => s.bucket === "low").length;
-  const lowPct = Math.round((lowCount / TOTAL_STUDENTS) * 100);
-  const threshold = Math.ceil(objective.activitiesCount / 3);
-  const lowAttempts = roster.filter((s) => s.attempted <= threshold).length;
   const weakest = objective.activities
     ? objective.activities.reduce((min, a) => (a.correctness < min.correctness ? a : min))
     : null;
+  const activityNum = weakest?.name.match(/Activity (\d+)/)?.[1] ?? "1";
 
-  const insights = [
-    lowCount > 0 && {
-      text: <>{lowCount} of {TOTAL_STUDENTS} students ({lowPct}%) are struggling with this objective.</>,
-      action: { label: "View Students", onClick: onViewStruggling },
-    },
+  const recommendationText = objective.id === "lo-density"
+    ? "Students are struggling with applying the density equation, but the data suggests this is a conceptual gap, not a participation issue. Most students with Low proficiency completed the related practice activities yet continue selecting incorrect formulas when rearranging the equation for mass, volume, or density."
+    : `Students are struggling with ${objective.title.charAt(0).toLowerCase()}${objective.title.slice(1)}, but the data suggests this is a conceptual gap, not a participation issue. Most students with Low proficiency completed related activities yet continue to demonstrate gaps in understanding.`;
+
+  if (dismissed) return null;
+
+  const steps = [
     weakest && {
-      text: <>Lowest-performing activity: <ActivityLink name={weakest.name} onNavigate={onReviewActivity} /> — {weakest.correctness}% correctness, {weakest.completion}% completion.</>,
-      action: { label: "Review Activity", onClick: onReviewActivity },
+      icon: "📋",
+      label: `Review Activity ${activityNum}`,
+      desc: "Investigate the lowest-performing activity attached to this objective.",
+      onClick: onReviewActivity,
     },
-    lowAttempts > 0 && {
-      text: <>{lowAttempts} students completed {threshold} or fewer of the {objective.activitiesCount} related activities.</>,
-      action: { label: "✉ Email Students", onClick: onEmailStruggling },
+    lowCount > 0 && {
+      icon: "👥",
+      label: `View ${lowCount} Students`,
+      desc: "See which students are struggling and compare their attempts.",
+      onClick: onViewStruggling,
+    },
+    lowCount > 0 && {
+      icon: "✉",
+      label: "Email Students",
+      desc: "Send a reminder encouraging another attempt before the upcoming assessment.",
+      onClick: onEmailStruggling,
     },
   ].filter(Boolean);
 
-  if (insights.length === 0) return null;
-
   return (
     <div style={{
-      background: T.tableHover, border: `1px solid ${T.border}`, borderLeft: `3px solid ${T.action}`,
-      borderRadius: 6, padding: "12px 16px",
+      background: T.tableHover, border: `1px solid ${T.action}`, borderLeft: `3px solid ${T.action}`,
+      borderRadius: 6, padding: "13px 17px 13px 19px",
     }}>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: T.textHigh, marginBottom: 10 }}>
-        What's driving this estimate
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 9 }}>
+        <span style={{ fontSize: 22, lineHeight: 1 }} aria-hidden>✦</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: T.textHigh, textTransform: "uppercase", flex: 1 }}>
+          AI Recommendation
+        </span>
+        <button
+          onClick={() => setDismissed(true)}
+          title="Dismiss recommendation"
+          style={{
+            fontFamily: T.font, background: "none", border: "none", cursor: "pointer",
+            color: T.textMuted, fontSize: 18, lineHeight: 1, padding: 4,
+          }}
+        >
+          ×
+        </button>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-        {insights.map((ins, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ color: T.textMuted }}>•</span>
-            <span style={{ fontSize: 12.5, color: T.textLow, lineHeight: 1.5, flex: 1 }}>{ins.text}</span>
-            <ActionButton onClick={ins.action.onClick}>{ins.action.label}</ActionButton>
-          </div>
-        ))}
+      <p style={{ margin: "0 0 16px", fontSize: 16, color: T.textLow, lineHeight: 1.5, maxWidth: 1060 }}>
+        {recommendationText}
+      </p>
+      <div style={{ paddingLeft: 18 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: T.textLow, textTransform: "uppercase", marginBottom: 12 }}>
+          Recommended next steps
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {steps.map((step) => (
+            <div key={step.label}>
+              <SecondaryActionButton icon={step.icon} onClick={step.onClick}>
+                {step.label}
+              </SecondaryActionButton>
+              <p style={{ margin: "6px 0 0", fontSize: 16, color: T.textLow, lineHeight: 1.5 }}>
+                {step.desc}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -929,141 +1193,69 @@ function InsightStrip({ objective, roster, onViewStruggling, onReviewActivity, o
 // Sub-objectives table
 // ---------------------------------------------------------------------------
 
-function SubObjectivesTable({ subObjectives, onViewActivities, defaultExpandAll = false }) {
-  const [expanded, setExpanded] = useState(
-    () => new Set(defaultExpandAll ? subObjectives.map((_, i) => i) : []),
-  );
-  const toggle = (i) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
-      return next;
-    });
-  };
-
+function SubObjectivesTable({ subObjectives, onViewActivities, activitiesCount }) {
   const th = {
-    textAlign: "left", fontSize: 12, fontWeight: 700, color: T.textHigh,
-    padding: "9px 12px", borderBottom: `1px solid ${T.border}`, background: "#fff",
+    textAlign: "left", fontSize: 16, fontWeight: 600, color: T.textHigh,
+    padding: "10px", borderBottom: `1px solid ${T.border}`, background: "#fff",
+    height: 50, verticalAlign: "middle",
   };
-  const td = { padding: "10px 12px", fontSize: 13, color: T.textLow, verticalAlign: "middle" };
+  const td = {
+    padding: "10px", fontSize: 16, fontWeight: 500, color: T.textHigh,
+    verticalAlign: "middle", lineHeight: 1.5, background: T.rowStripe,
+    borderTop: `1px solid ${T.border}`,
+  };
 
   if (subObjectives.length === 0) {
     return (
-      <div style={{ fontSize: 12.5, color: T.textMuted, fontStyle: "italic", padding: "4px 2px" }}>
+      <div style={{ fontSize: 14, color: T.textMuted, fontStyle: "italic", padding: "4px 2px" }}>
         This objective has no sub-objectives. Activity-level details are available in the Scored Activities tab.
       </div>
     );
   }
 
   return (
-    <div style={{ border: `1px solid ${T.border}`, borderRadius: 6, overflow: "hidden", background: "#fff" }}>
+    <div style={{ border: `1px solid ${T.border}`, overflow: "hidden" }}>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr>
-            <th style={{ ...th, width: 28 }} />
-            <th style={th}>Sub-objective ⌄</th>
-            <th style={{ ...th, width: 170 }}>Class Proficiency ⌄</th>
-            <th style={{ ...th, width: 170 }}>Proficiency Distribution</th>
-            <th style={{ ...th, width: 130 }}>Related Activities</th>
+            <th style={th}>
+              Sub-objective <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span>
+            </th>
+            <th style={{ ...th, width: 200 }}>
+              Student Proficiency <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span>
+            </th>
+            <th style={{ ...th, width: 220 }}>Proficiency Distribution</th>
+            <th style={{ ...th, width: 200 }}>Related Activities</th>
           </tr>
         </thead>
         <tbody>
-          {subObjectives.map((sub, i) => {
-            const lowN = sub.dist[1];
-            const open = expanded.has(i);
-            const weakest = sub.relatedActivities.reduce((min, a) => (a.correctness < min.correctness ? a : min));
-            return (
-              <SubObjectiveRows
-                key={sub.title}
-                sub={sub} index={i} open={open} lowN={lowN} weakest={weakest}
-                onToggle={() => toggle(i)}
-                td={td}
-                onViewActivities={onViewActivities}
-              />
-            );
-          })}
+          {subObjectives.map((sub) => (
+            <tr key={sub.title}>
+              <td style={td}>{sub.title}</td>
+              <td style={td}>
+                <Chip label={sub.chip} scope="Class-level status for this sub-objective." variant="figma" />
+              </td>
+              <td style={td}>
+                <MiniDistBar dist={sub.dist} width={157} height={25} variant="figma" />
+              </td>
+              <td style={{ ...td, textAlign: "center" }}>
+                <button
+                  onClick={onViewActivities}
+                  style={{
+                    fontFamily: T.font, cursor: "pointer", background: "#fff",
+                    border: `1px solid ${T.buttonBorderBold}`, color: T.action, borderRadius: 6,
+                    padding: "8px 16px", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap",
+                    boxShadow: T.buttonShadow, display: "inline-flex", alignItems: "center", gap: 8,
+                  }}
+                >
+                  View {activitiesCount} Activities <span style={{ fontSize: 14 }}>›</span>
+                </button>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
-  );
-}
-
-function SubObjectiveRows({ sub, index, open, lowN, weakest, onToggle, td, onViewActivities }) {
-  return (
-    <>
-      <tr
-        onClick={onToggle}
-        style={{ background: open ? T.tableSelect : index % 2 === 0 ? T.rowStripe : "#fff", cursor: "pointer" }}
-      >
-        <td style={{ ...td, color: T.textMuted, fontSize: 10 }}>{open ? "⌃" : "⌄"}</td>
-        <td style={{ ...td, fontWeight: 600, color: T.textHigh, lineHeight: 1.45 }}>{sub.title}</td>
-        <td style={td}>
-          <Chip label={sub.chip} scope="Class-level status for this sub-objective." />
-          <div style={{ fontSize: 11.5, color: T.textMuted, marginTop: 3 }}>
-            {lowN} of {TOTAL_STUDENTS} students struggling
-          </div>
-        </td>
-        <td style={td}><MiniDistBar dist={sub.dist} /></td>
-        <td style={td}>
-          <button
-            title={open ? "Hide this sub-objective's activities" : "View this sub-objective's activities"}
-            onClick={(e) => { e.stopPropagation(); onToggle(); }}
-            style={{
-              fontFamily: T.font, cursor: "pointer",
-              background: open ? T.tableSelect : "#fff",
-              border: `1px solid ${T.action}`, color: T.action, borderRadius: 999,
-              padding: "2px 11px", fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap",
-            }}
-          >
-            {sub.relatedActivities.length} {open ? "▲" : "▼"}
-          </button>
-        </td>
-      </tr>
-      {open && (
-        <tr>
-          <td colSpan={5} style={{ padding: 0 }}>
-            <div style={{ padding: "10px 14px 14px 40px", background: "#fcfdff", borderTop: `1px solid ${T.border}` }}>
-              <div style={{
-                fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: "uppercase",
-                letterSpacing: 0.5, marginBottom: 8,
-              }}>
-                Activities contributing to this estimate
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                {sub.relatedActivities.map((a) => {
-                  const isWeakest = a === weakest;
-                  return (
-                    <div key={a.name} style={{ display: "flex", alignItems: "baseline", gap: 10, fontSize: 12.5 }}>
-                      <span style={{ color: T.textMuted }}>•</span>
-                      <ActivityLink name={a.name} onNavigate={onViewActivities} style={{ minWidth: 200 }} />
-                      <span style={{
-                        fontSize: 10.5, fontWeight: 600, padding: "1px 8px", borderRadius: 999,
-                        background: "#e6e7ec", color: T.textLow,
-                      }}>
-                        {a.type}
-                      </span>
-                      <span style={{ color: T.textLow }}>{a.completion}% completion</span>
-                      <span style={{ color: T.textMuted }}>·</span>
-                      <span style={{ color: isWeakest ? T.danger : T.textLow, fontWeight: isWeakest ? 700 : 400 }}>
-                        {a.correctness}% correctness
-                      </span>
-                      {isWeakest && (
-                        <span style={{
-                          fontSize: 10, fontWeight: 700, color: T.danger, border: `1px solid ${T.danger}`,
-                          borderRadius: 999, padding: "0px 8px", textTransform: "uppercase", letterSpacing: 0.3,
-                        }}>
-                          Weakest
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
   );
 }
 
@@ -1071,7 +1263,7 @@ function SubObjectiveRows({ sub, index, open, lowN, weakest, onToggle, td, onVie
 // Learning objective row (collapsed + expanded)
 // ---------------------------------------------------------------------------
 
-function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onSelectBucket, onViewActivities }) {
+function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onSelectBucket, onViewActivities, rowIndex = 0 }) {
   const roster = ROSTERS[objective.id];
   const [showHowEstimated, setShowHowEstimated] = useState(false);
 
@@ -1080,26 +1272,15 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
     [roster, selectedBucket],
   );
 
-  const openStudents = () => {
-    if (!expanded) onToggleExpand();
-    onSelectBucket("low");
-  };
-  const openSubObjectives = () => {
-    if (!expanded) onToggleExpand();
-  };
   const openActivities = () => {
     onViewActivities(objective.id);
   };
 
-  // Clickable summary pills — each jumps to the matching detail.
-  const strugglingN = roster.filter((s) => s.bucket === "low").length;
-  const pills = [
-    strugglingN > 0 && { text: `${strugglingN} students struggling`, bg: T.dangerFill, color: T.danger, onClick: openStudents },
-    objective.subObjectives.length > 0 && { text: `${objective.subObjectives.length} sub-objectives`, bg: "#e6e7ec", color: T.textLow, onClick: openSubObjectives },
-    { text: `${objective.activitiesCount} activities`, bg: "#e6e7ec", color: T.textLow, onClick: openActivities },
-  ].filter(Boolean);
-
-  const td = { padding: "13px 14px", fontSize: 13, color: T.textLow, verticalAlign: "middle" };
+  const rowBg = rowIndex % 2 === 0 ? T.rowStripe : T.tableRow2;
+  const thRow = {
+    padding: "20px 10px", fontSize: 16, fontWeight: 500, color: T.textHigh,
+    verticalAlign: "middle", lineHeight: 1.5,
+  };
 
   return (
     <>
@@ -1107,37 +1288,30 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
       <tr
         onClick={onToggleExpand}
         style={{
-          background: expanded ? T.tableSelect : "#fff",
+          background: expanded ? T.tableSelect : rowBg,
           borderTop: `1px solid ${T.border}`, cursor: "pointer",
         }}
       >
-        <td style={{ ...td, width: 34, color: T.textMuted, fontSize: 11 }}>
-          {expanded ? "⌃" : "⌄"}
+        <td style={{ ...thRow, width: 48, textAlign: "center", padding: "10px" }}>
+          <span style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            width: 24, height: 24, borderRadius: 3,
+            background: expanded ? T.action : "transparent",
+            color: expanded ? "#fff" : T.textMuted, fontSize: 12,
+          }}>
+            {expanded ? "⌃" : "⌄"}
+          </span>
         </td>
-        <td style={{ ...td, fontWeight: 600, color: T.textHigh, lineHeight: 1.45 }}>
+        <td style={thRow}>
           {objective.title}
-          {/* clickable summary pills — quick overview, each jumps to its detail */}
-          <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-            {pills.map((p) => (
-              <button
-                key={p.text}
-                onClick={(e) => { e.stopPropagation(); p.onClick(); }}
-                style={{
-                  fontFamily: T.font, cursor: "pointer", border: "none",
-                  fontSize: 10.5, fontWeight: 600, padding: "2px 9px", borderRadius: 999,
-                  background: p.bg, color: p.color, whiteSpace: "nowrap",
-                }}
-              >
-                {p.text}
-              </button>
-            ))}
-          </div>
         </td>
-        <td style={{ ...td, width: 150 }}>
-          <Chip label={objective.chip} scope="Class-level status for this objective." />
+        <td style={{ ...thRow, width: 200 }}>
+          <Chip label={objective.chip} scope="Class-level status for this objective." variant="figma" />
         </td>
-        <td style={{ ...td, width: 180 }}><MiniDistBar dist={objective.dist} /></td>
-        <td style={{ ...td, width: 130 }}>
+        <td style={{ ...thRow, width: 180 }}>
+          <MiniDistBar dist={objective.dist} width={157} height={25} variant="figma" />
+        </td>
+        <td style={{ ...thRow, width: 180, textAlign: "center" }}>
           <button
             title="View the activities supporting this objective's sub-objectives"
             onClick={(e) => {
@@ -1146,11 +1320,12 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
             }}
             style={{
               fontFamily: T.font, cursor: "pointer", background: "#fff",
-              border: `1px solid ${T.action}`, color: T.action, borderRadius: 999,
-              padding: "3px 12px", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap",
+              border: `1px solid ${T.buttonBorderBold}`, color: T.action, borderRadius: 6,
+              padding: "8px 16px", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap",
+              boxShadow: T.buttonShadow, display: "inline-flex", alignItems: "center", gap: 8,
             }}
           >
-            {objective.activitiesCount} ↗
+            View {objective.activitiesCount} Activities <span style={{ fontSize: 14 }}>›</span>
           </button>
         </td>
       </tr>
@@ -1158,46 +1333,23 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
       {/* expanded view */}
       {expanded && (
         <tr>
-          <td colSpan={5} style={{ padding: 0, borderTop: `1px solid ${T.border}` }}>
+          <td colSpan={5} style={{ padding: 0, borderTop: `1px solid ${T.border}`, background: T.tableHover }}>
             <div style={{
-              padding: "18px 24px 22px 44px", background: "#fbfcfe",
-              display: "flex", flexDirection: "column", gap: 16,
+              padding: "24px 24px 24px 66px",
+              display: "flex", flexDirection: "column", gap: 24,
             }}>
               {/* header + how-estimated disclosure */}
               <div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 13.5, fontWeight: 700, color: T.textHigh }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: T.textHigh }}>
                     Estimated Learning: {TOTAL_STUDENTS} Students
                   </span>
-                  <LinkButton onClick={() => setShowHowEstimated((v) => !v)} style={{ fontSize: 12, fontWeight: 600 }}>
+                  <LinkButton onClick={() => setShowHowEstimated((v) => !v)} style={{ fontSize: 14, fontWeight: 700, color: T.link }}>
                     ⓘ How is proficiency estimated?
                   </LinkButton>
                 </div>
-                {showHowEstimated && (
-                  <div style={{
-                    marginTop: 8, fontSize: 12.5, color: T.textLow, lineHeight: 1.55,
-                    background: "#fff", border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px", maxWidth: 640,
-                  }}>
-                    Proficiency is estimated from <strong>activity completion</strong>, <strong>correctness</strong>, and
-                    whether students have had <strong>multiple opportunities to demonstrate learning</strong>.
-                    <ul style={{ margin: "8px 0 0", padding: "0 0 0 18px", display: "flex", flexDirection: "column", gap: 4 }}>
-                      {BUCKETS.map((b) => (
-                        <li key={b.id}>
-                          <strong>{b.label}</strong> — {b.desc}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {showHowEstimated && <HowProficiencyEstimatedCard />}
               </div>
-
-              <InsightStrip
-                objective={objective}
-                roster={roster}
-                onViewStruggling={() => onSelectBucket("low")}
-                onReviewActivity={openActivities}
-                onEmailStruggling={() => onSelectBucket("low")}
-              />
 
               <ProficiencyBuckets roster={roster} selectedBucket={selectedBucket} onSelectBucket={onSelectBucket} />
 
@@ -1211,17 +1363,19 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
                 />
               )}
 
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: T.textHigh, marginBottom: 8 }}>
-                  Sub-objectives
-                </div>
-                <SubObjectivesTable
-                  subObjectives={objective.subObjectives}
-                  onViewActivities={() => onViewActivities(objective.id)}
-                />
-              </div>
+              <AIRecommendation
+                objective={objective}
+                roster={roster}
+                onViewStruggling={() => onSelectBucket("low")}
+                onReviewActivity={openActivities}
+                onEmailStruggling={() => onSelectBucket("low")}
+              />
 
-              {objective.trend && <TrendSection trend={objective.trend} />}
+              <SubObjectivesTable
+                subObjectives={objective.subObjectives}
+                onViewActivities={() => onViewActivities(objective.id)}
+                activitiesCount={objective.activitiesCount}
+              />
             </div>
           </td>
         </tr>
@@ -1320,12 +1474,43 @@ function MultiInputAnalysis({ item }) {
   );
 }
 
-function AnswerDistribution({ answers, highlightWrong }) {
+function AnswerDistribution({ answers, highlightWrong, variant = "default" }) {
   const total = answers.reduce((s, a) => s + a.count, 0) || 1;
   const topWrong = highlightWrong
     ? answers.filter((a) => !a.correct).reduce((max, a) => (!max || a.count > max.count ? a : max), null)
     : null;
-  const neutralBar = "#b8bac4";
+  const neutralBar = "#ced1d9";
+  const greenBar = "#218358";
+
+  if (variant === "figma") {
+    const labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {answers.filter((a) => a.text !== "No answer / skipped").map((a, i) => {
+          const emphasize = topWrong && a === topWrong;
+          const isCorrect = a.correct;
+          return (
+            <div key={a.text}>
+              <div style={{ fontSize: 18, fontWeight: 600, color: T.textHigh, marginBottom: 5 }}>
+                {labels[i]}.
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{
+                  height: 24, width: Math.max(24, Math.round((a.count / total) * 112)),
+                  background: isCorrect ? greenBar : emphasize ? T.danger : neutralBar,
+                  flexShrink: 0,
+                }} />
+                <span style={{ fontSize: 16, fontWeight: 600, color: T.textLow }}>
+                  {a.count} student{a.count === 1 ? "" : "s"}
+                </span>
+                {isCorrect && <span style={{ color: greenBar, fontSize: 14 }} aria-hidden>✓</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1360,96 +1545,152 @@ function AnswerDistribution({ answers, highlightWrong }) {
   );
 }
 
-function ActivityQuestionRow({ item, index, open, onToggle }) {
+function SummaryBar({ label, pct, width = 251 }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <span style={{ fontSize: 16, fontWeight: 600, color: T.textHigh, whiteSpace: "nowrap" }}>{label}</span>
+      <div style={{ position: "relative", width, height: 24, background: "#ced1d9" }}>
+        <div style={{
+          position: "absolute", left: 0, top: 0, bottom: 0,
+          width: `${Math.max(0, Math.min(100, pct))}%`,
+          background: T.danger,
+        }} />
+      </div>
+      <span style={{ fontSize: 16, fontWeight: 600, color: T.textLow }}>{pct}%</span>
+    </div>
+  );
+}
+
+function QuestionExpandedDetail({ item }) {
+  const [tab, setTab] = useState("responses");
   const weak = isWeakActivity(item.correctPct);
   const isMultiInput = item.type === "multi-input";
-  const td = { padding: "11px 12px", fontSize: 13, color: T.textLow, verticalAlign: "top" };
-  const wrongAnswers = item.answers?.filter((a) => !a.correct) ?? [];
-  const topWrong = wrongAnswers.length
-    ? wrongAnswers.reduce((max, a) => (a.count > max.count ? a : max), wrongAnswers[0])
-    : null;
+  const firstTry = item.firstTryPct ?? item.correctPct;
+  const eventual = item.eventualPct ?? Math.min(100, item.correctPct + 18);
+  const tabs = ["Student Responses", "Answer Key", "Hints", "Explanation", "Dynamic Variables"];
+
+  return (
+    <div style={{ background: T.tableHover, padding: "16px 24px 20px 48px" }}>
+      <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: `1px solid ${T.border}` }}>
+        {tabs.map((t) => {
+          const tabId = t === "Student Responses" ? "responses" : t.toLowerCase().replace(/ /g, "-");
+          const isActive = tab === tabId;
+          return (
+            <button
+              key={t}
+              onClick={(e) => { e.stopPropagation(); setTab(tabId); }}
+              style={{
+                fontFamily: T.font, cursor: "pointer", background: T.tableHover, border: "none",
+                padding: "16px 12px", fontSize: 14, fontWeight: isActive ? 600 : 400, color: T.textHigh,
+                borderBottom: isActive ? "2px solid #0080ff" : "2px solid transparent",
+                marginBottom: -1,
+              }}
+            >
+              {t}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === "responses" ? (
+        <>
+          <div style={{ fontSize: 16, fontWeight: 700, color: T.textHigh, marginBottom: 16 }}>
+            {item.details.uniqueStudents} Students Responded
+          </div>
+          {isMultiInput ? (
+            <MultiInputAnalysis item={item} />
+          ) : (
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24,
+              border: `1px solid ${T.border}`, borderRadius: 3, background: "#fff", padding: 20,
+              marginBottom: 16,
+            }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: T.textHigh, marginBottom: 12 }}>
+                  First Attempt
+                </div>
+                <AnswerDistribution answers={item.answers} highlightWrong={weak} variant="figma" />
+              </div>
+              <div style={{
+                border: `1px solid ${T.border}`, borderRadius: 3, padding: 16, background: "#fafbfc",
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: T.textHigh, marginBottom: 8 }}>
+                  {item.poolId}:
+                </div>
+                <div style={{ fontSize: 16, color: T.textLow, lineHeight: 1.5, marginBottom: 12 }}>
+                  {item.stem}
+                </div>
+                {item.answers.filter((a) => a.text !== "No answer / skipped").map((a, i) => (
+                  <div key={a.text} style={{ fontSize: 14, color: T.textLow, marginBottom: 6, lineHeight: 1.45 }}>
+                    {String.fromCharCode(65 + i)}. {a.text}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {!isMultiInput && (
+            <div style={{
+              border: `1px solid ${T.border}`, borderRadius: 3, background: "#fff",
+              padding: "20px 23px", display: "flex", gap: 107, flexWrap: "wrap",
+            }}>
+              <SummaryBar label="First Try Correct:" pct={firstTry} />
+              <SummaryBar label="Eventually Correct" pct={eventual} />
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ fontSize: 14, color: T.textMuted, fontStyle: "italic", padding: "8px 0" }}>
+          {tab.replace(/-/g, " ")} is not available in this prototype.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActivityQuestionRow({ item, index, open, onToggle }) {
+  const weak = isWeakActivity(item.correctPct);
+  const td = { padding: "10px", fontSize: 16, color: T.textLow, verticalAlign: "middle" };
+  const rowBg = index % 2 === 0 ? T.tableRow2 : T.rowStripe;
 
   return (
     <>
       <tr
         onClick={onToggle}
         style={{
-          background: open ? T.rowStripe : index % 2 === 0 ? "#fff" : T.rowStripe,
-          cursor: "pointer",
+          background: open ? T.tableSelect : rowBg,
+          borderTop: `1px solid ${T.border}`, cursor: "pointer",
         }}
       >
-        <td style={{ ...td, width: 36, color: T.textMuted, fontSize: 11 }}>
-          {open ? "⌃" : "⌄"}
+        <td style={{ ...td, width: 51, textAlign: "center" }}>
+          <span style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            width: 24, height: 24, borderRadius: 3,
+            background: open ? T.action : "transparent",
+            color: open ? "#fff" : T.textMuted, fontSize: 12,
+          }}>
+            {open ? "⌃" : "⌄"}
+          </span>
         </td>
-        <td style={{ ...td, width: 40, fontWeight: 700, color: T.textHigh }}>{item.id}</td>
         <td style={td}>
-          <div style={{ fontSize: 11.5, color: T.textMuted, fontFamily: "monospace", marginBottom: 3 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.textHigh, marginBottom: 4 }}>
             {item.poolId}:
           </div>
-          <div style={{ fontWeight: 600, color: T.textHigh, lineHeight: 1.45 }}>{item.stem}</div>
-          {(isMultiInput || weak) && (
-            <div style={{ fontSize: 11.5, color: T.textMuted, marginTop: 4 }}>
-              {isMultiInput && "Multi-input"}
-              {isMultiInput && weak && " · "}
-              {weak && <span style={{ color: T.danger, fontWeight: 600 }}>Needs attention</span>}
-            </div>
-          )}
+          <div style={{ fontWeight: 400, color: T.textHigh, lineHeight: 1.5 }}>{item.stem}</div>
         </td>
-        <td style={{ ...td, maxWidth: 280 }}>
-          {item.learningObjectives.length === 0 ? (
-            <span style={{ color: T.textMuted, fontStyle: "italic" }}>—</span>
-          ) : (
-            item.learningObjectives.map((lo) => (
-              <div key={lo} style={{ fontSize: 12.5, lineHeight: 1.45, marginBottom: 4 }}>{lo}</div>
-            ))
-          )}
+        <td style={{ ...td, width: 171, fontWeight: 700, fontSize: 14, color: T.textHigh }}>
+          {item.attempts}
         </td>
-        <td style={{ ...td, width: 90, fontWeight: 700, textAlign: "center" }}>{item.attempts}</td>
-        <td style={{
-          ...td, width: 90, fontWeight: 700, textAlign: "center",
-          color: weak ? T.danger : T.textHigh,
-        }}>
-          {item.correctPct}%
+        <td style={{ ...td, width: 196, fontWeight: 700, fontSize: 14, color: weak ? "#b60202" : T.textHigh }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            {item.correctPct}%
+            {weak && <span style={{ fontSize: 14 }} aria-hidden title="Needs attention">⚠</span>}
+          </span>
         </td>
       </tr>
       {open && (
         <tr>
-          <td colSpan={6} style={{ padding: 0, background: "#fff" }}>
-            <div style={{ padding: "14px 16px 16px 52px", borderTop: `1px solid ${T.border}` }}>
-              {isMultiInput ? (
-                <MultiInputAnalysis item={item} />
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 24 }}>
-                  <div>
-                    <div style={{
-                      fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: "uppercase",
-                      letterSpacing: 0.5, marginBottom: 10,
-                    }}>
-                      Answer distribution
-                    </div>
-                    <AnswerDistribution answers={item.answers} highlightWrong={weak} />
-                  </div>
-                  <div>
-                    <div style={{
-                      fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: "uppercase",
-                      letterSpacing: 0.5, marginBottom: 10,
-                    }}>
-                      Details
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: T.textMuted }}>
-                      <div>{item.details.uniqueStudents} unique students attempted</div>
-                      <div>{item.details.avgAttempts} avg attempts per student</div>
-                      <div>{item.details.skipped} skipped / no answer</div>
-                      {weak && topWrong && (
-                        <div style={{ marginTop: 6, color: T.danger }}>
-                          Most common wrong answer: “{topWrong.text}”
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+          <td colSpan={4} style={{ padding: 0, borderTop: `1px solid ${T.border}` }}>
+            <QuestionExpandedDetail item={item} />
           </td>
         </tr>
       )}
@@ -1459,13 +1700,10 @@ function ActivityQuestionRow({ item, index, open, onToggle }) {
 
 function ObjectiveActivitiesView({ objective, onBack }) {
   const items = getActivityItems(objective);
-  const [filter, setFilter] = useState("all");
-  const weakItems = items.filter((i) => isWeakActivity(i.correctPct));
-  const visibleItems = filter === "weak" ? weakItems : items;
-
+  const [search, setSearch] = useState("");
+  const [scoreFilter, setScoreFilter] = useState("all");
+  const [attemptsFilter, setAttemptsFilter] = useState("all");
   const [expanded, setExpanded] = useState(() => new Set());
-
-  const weakCount = weakItems.length;
 
   const toggle = (id) => {
     setExpanded((prev) => {
@@ -1475,91 +1713,123 @@ function ObjectiveActivitiesView({ objective, onBack }) {
     });
   };
 
+  const visibleItems = items
+    .filter((i) => {
+      if (search && !i.stem.toLowerCase().includes(search.toLowerCase())
+        && !i.poolId.toLowerCase().includes(search.toLowerCase())) return false;
+      if (scoreFilter === "weak" && !isWeakActivity(i.correctPct)) return false;
+      if (attemptsFilter === "high" && i.attempts < 50) return false;
+      if (attemptsFilter === "low" && i.attempts >= 50) return false;
+      return true;
+    })
+    .sort((a, b) => scoreFilter === "weak" ? a.correctPct - b.correctPct : a.id - b.id);
+
   const th = {
-    textAlign: "left", fontSize: 12.5, fontWeight: 700, color: T.textHigh,
-    padding: "10px 14px", borderBottom: `1px solid ${T.border}`, background: "#fff",
+    textAlign: "left", fontSize: 16, fontWeight: 600, color: T.textHigh,
+    padding: "10px", borderBottom: `1px solid ${T.border}`, background: "#fff",
+    height: 50, verticalAlign: "middle",
   };
 
-  const filterBtn = (id, label) => {
-    const active = filter === id;
-    const isWeakFilter = id === "weak";
-    return (
-      <button
-        onClick={() => setFilter(id)}
+  const filterSelect = (value, onChange, label) => (
+    <div style={{
+      display: "inline-flex", alignItems: "center", gap: 10,
+      border: `1px solid ${T.border}`, borderRadius: 3, padding: "8px 10px", height: 35,
+    }}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         style={{
-          fontFamily: T.font, cursor: "pointer", fontSize: 12.5, fontWeight: active ? 700 : 400,
-          padding: "6px 14px", borderRadius: 6,
-          border: isWeakFilter
-            ? `1px solid ${active ? T.danger : "#f0a6ab"}`
-            : `1px solid ${T.border}`,
-          background: isWeakFilter && active ? T.dangerFill : active ? T.rowStripe : "#fff",
-          color: isWeakFilter ? T.danger : T.textLow,
+          fontFamily: T.font, fontSize: 16, fontWeight: 600, padding: 0,
+          border: "none", color: T.textHigh, background: "transparent", outline: "none",
+          cursor: "pointer", appearance: "none", paddingRight: 18,
         }}
       >
         {label}
-      </button>
-    );
-  };
+      </select>
+      <span style={{ fontSize: 10, color: T.textMuted, marginLeft: -16 }}>⌄</span>
+    </div>
+  );
 
   return (
-    <div style={{ maxWidth: 1280, margin: "0 auto", padding: "16px 24px 64px" }}>
-      <div style={{ background: T.bgSecondary, borderRadius: 16, boxShadow: T.shadow, padding: 24 }}>
-        <LinkButton onClick={onBack} style={{ fontSize: 13, marginBottom: 16, display: "inline-block" }}>
-          ‹ Back to Learning Objectives
-        </LinkButton>
+    <div style={{ maxWidth: 1325, margin: "0 auto", padding: "16px 24px 64px" }}>
+      <LinkButton
+        onClick={onBack}
+        style={{ fontSize: 14, fontWeight: 600, color: "#373a44", marginBottom: 12, display: "inline-flex", alignItems: "center", gap: 8 }}
+      >
+        ‹ Back to Learning Objectives
+      </LinkButton>
 
-        <h2 style={{ margin: "0 0 16px", fontSize: 20, fontWeight: 700, color: T.textHigh, lineHeight: 1.4, maxWidth: 900 }}>
-          {objective.title}
-        </h2>
+      <h1 style={{ margin: "0 0 24px", fontSize: 24, fontWeight: 500, color: T.textHigh, lineHeight: 1.33, maxWidth: 1100 }}>
+        {objective.title}
+      </h1>
 
-        {weakCount > 0 && filter !== "weak" && (
-          <div style={{
-            border: `1px solid ${T.border}`, borderRadius: 6, padding: "8px 14px", marginBottom: 14,
-            fontSize: 12.5, color: T.textMuted,
-          }}>
-            <span style={{ color: T.danger, fontWeight: 600 }}>{weakCount}</span>
-            {" "}question{weakCount === 1 ? "" : "s"} below {WEAK_CORRECT_THRESHOLD}% correct.
-            {" "}Use <strong style={{ color: T.textLow, fontWeight: 600 }}>Needs attention</strong> to focus.
+      {items.length > 0 && (
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 12, marginBottom: 12,
+          background: "#fff", border: `1px solid ${T.border}`,
+          boxShadow: "0 2px 6px rgba(0,0,0,0.10)", padding: "0 10px",
+        }}>
+          <div style={{ padding: "10px 0" }}>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search"
+              aria-label="Search questions"
+              style={{
+                fontFamily: T.font, fontSize: 14, padding: "8px 12px 8px 36px", width: 224,
+                border: `1px solid ${T.border}`, borderRadius: 6, outline: "none", color: T.textLow,
+                background: `#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23757682'%3E%3Cpath d='M11.7 10.3l3.3 3.3-1.4 1.4-3.3-3.3a5 5 0 1 1 1.4-1.4zM6 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'/%3E%3C/svg%3E") no-repeat 10px center`,
+              }}
+            />
           </div>
-        )}
+          {filterSelect(attemptsFilter, setAttemptsFilter, (
+            <>
+              <option value="all">Attempts</option>
+              <option value="high">50+ attempts</option>
+              <option value="low">Under 50 attempts</option>
+            </>
+          ))}
+          {filterSelect(scoreFilter, setScoreFilter, (
+            <>
+              <option value="all">Score</option>
+              <option value="weak">Needs attention (&lt;65%)</option>
+            </>
+          ))}
+          <button
+            onClick={() => { setSearch(""); setScoreFilter("all"); setAttemptsFilter("all"); }}
+            style={{
+              fontFamily: T.font, fontSize: 14, color: T.textHigh, background: "none",
+              border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+              padding: "10px",
+            }}
+          >
+            <span style={{ fontSize: 16 }} aria-hidden>🗑</span> Clear All Filters
+          </button>
+        </div>
+      )}
 
-        {items.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-            {filterBtn("all", `All questions (${items.length})`)}
-            {filterBtn("weak", `Needs attention (${weakCount})`)}
-            {filter === "weak" && (
-              <span style={{ fontSize: 12, color: T.textMuted, marginLeft: 4 }}>
-                Sorted by lowest % correct
-              </span>
-            )}
-          </div>
-        )}
-
-        {items.length === 0 ? (
-          <div style={{ fontSize: 13, color: T.textMuted, fontStyle: "italic" }}>
-            Activity-level details for this objective are available in the Scored Activities tab.
-          </div>
-        ) : visibleItems.length === 0 ? (
-          <div style={{ fontSize: 13, color: T.textMuted, fontStyle: "italic", padding: 16 }}>
-            No questions match this filter.
-          </div>
-        ) : (
-          <div style={{ border: `1px solid ${T.border}`, borderRadius: 6, overflow: "hidden" }}>
+      {items.length === 0 ? (
+        <div style={{ fontSize: 14, color: T.textMuted, fontStyle: "italic", background: "#fff", padding: 24 }}>
+          Activity-level details for this objective are available in the Scored Activities tab.
+        </div>
+      ) : visibleItems.length === 0 ? (
+        <div style={{ fontSize: 14, color: T.textMuted, fontStyle: "italic", padding: 16, background: "#fff" }}>
+          No questions match the current filters.
+        </div>
+      ) : (
+        <div style={{ background: "#fff", padding: "32px 20px", border: `1px solid ${T.border}` }}>
+          <div style={{ border: `1px solid ${T.border}`, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={{ ...th, width: 36 }} />
-                  <th style={{ ...th, width: 40 }}># ⌄</th>
-                  <th style={th}>Question Stem ⌄</th>
-                  <th style={{ ...th, width: 280 }}>Learning Objectives ⌄</th>
-                  <th style={{ ...th, width: 90, textAlign: "center" }}>Attempts ⌄</th>
-                  <th style={{ ...th, width: 90, textAlign: "center" }}>% Correct ⌄</th>
+                  <th style={{ ...th, width: 51 }} />
+                  <th style={th}>Question Stem <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span></th>
+                  <th style={{ ...th, width: 171 }}>Attempts <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span></th>
+                  <th style={{ ...th, width: 196 }}>% Correct <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span></th>
                 </tr>
               </thead>
               <tbody>
-                {[...visibleItems]
-                  .sort((a, b) => filter === "weak" ? a.correctPct - b.correctPct : a.id - b.id)
-                  .map((item, i) => (
+                {visibleItems.map((item, i) => (
                   <ActivityQuestionRow
                     key={item.id}
                     item={item}
@@ -1571,8 +1841,8 @@ function ObjectiveActivitiesView({ objective, onBack }) {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1604,9 +1874,8 @@ function LearningObjectivesCard({ onViewActivities }) {
   // makes sense, drills straight into the relevant student group.
   const [activeCard, setActiveCard] = useState(null);
   const CARD_FILTERS = {
-    support: { filter: "Needs Attention", lo: "lo-density", bucket: "low" },
     objectives: { filter: "Needs Attention" },
-    ontrack: { filter: "On Track", lo: "lo-sigfigs", bucket: "high" },
+    subobjectives: { filter: "Needs Attention", lo: "lo-density" },
   };
   const toggleCard = (cardId) => {
     if (activeCard === cardId) {
@@ -1618,7 +1887,7 @@ function LearningObjectivesCard({ onViewActivities }) {
     const c = CARD_FILTERS[cardId];
     setActiveCard(cardId);
     setProficiencyFilter(c.filter);
-    setBucketSelections(c.lo ? { [c.lo]: c.bucket } : {});
+    setBucketSelections(c.lo && c.bucket ? { [c.lo]: c.bucket } : {});
     if (c.lo) setExpandedIds((prev) => new Set(prev).add(c.lo));
   };
 
@@ -1631,156 +1900,163 @@ function LearningObjectivesCard({ onViewActivities }) {
     .sort((a, b) => PRIORITY[a.chip] - PRIORITY[b.chip]);
 
   const lowOutcomes = OBJECTIVES.filter((lo) => lo.chip === "Needs Attention").length;
-  const lowSubObjectives = 5;
-
-  // Student-level counts from the top-priority objective's roster.
-  const priorityRoster = ROSTERS["lo-density"];
-  const strugglingStudents = priorityRoster.filter((s) => s.bucket === "low").length;
-  const strugglingPct = Math.round((strugglingStudents / TOTAL_STUDENTS) * 100);
-  const onTrackStudents = priorityRoster.filter((s) => s.bucket === "high").length;
-  const watchStudents = priorityRoster.filter((s) => s.bucket === "medium").length;
+  const lowSubObjectives = OBJECTIVES.reduce(
+    (sum, lo) => sum + lo.subObjectives.filter((s) => s.chip === "Needs Attention").length,
+    0,
+  );
 
   const th = {
-    textAlign: "left", fontSize: 12.5, fontWeight: 700, color: T.textHigh,
-    padding: "10px 14px", borderBottom: `1px solid ${T.border}`, background: "#fff",
+    textAlign: "left", fontSize: 16, fontWeight: 600, color: T.textHigh,
+    padding: "10px", borderBottom: `1px solid ${T.border}`, background: "#fff",
+    height: 50, verticalAlign: "middle",
   };
 
-  const summaryCard = (active) => ({
-    border: active ? `1.5px solid ${T.action}` : `1px solid ${T.border}`,
-    background: active ? T.tableSelect : "#fff",
-    borderRadius: 8, padding: active ? "11.5px 17.5px" : "12px 18px", minWidth: 180, cursor: "pointer",
+  const highlightCard = (active) => ({
+    border: active ? `1.5px solid ${T.action}` : `1px solid ${T.highlightCardBorder}`,
+    background: active ? T.tableSelect : T.highlightCardBg,
+    borderRadius: 16, padding: 24, width: 322, minHeight: 128, cursor: "pointer",
+    boxShadow: "0 2px 5px rgba(0, 50, 99, 0.10)",
   });
 
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto", padding: "16px 24px 64px" }}>
-      <div style={{ ...{ background: T.bgSecondary, borderRadius: 16, boxShadow: T.shadow }, padding: 24 }}>
-        {/* card header */}
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: T.textHigh }}>Learning Objectives</h2>
+      <div style={{ background: "#fff", padding: "32px 20px" }}>
+        {/* header + highlight cards + download */}
+        <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 16, gap: 16 }}>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ margin: "0 0 12px", fontSize: 18, fontWeight: 700, color: T.textHigh }}>
+              Learning Objectives
+            </h2>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <div
+                style={highlightCard(activeCard === "objectives")}
+                onClick={() => toggleCard("objectives")}
+                title="Filter the table to learning objectives with low proficiency"
+              >
+                <div style={{ fontSize: 16, fontWeight: 600, color: T.highlightCardText, lineHeight: 1.5 }}>
+                  Low Proficiency Learning Objectives
+                </div>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 8, marginTop: 12 }}>
+                  <span style={{ fontSize: 32, fontWeight: 700, color: T.highlightCardText, lineHeight: 1.1 }}>
+                    {lowOutcomes}
+                  </span>
+                  <span style={{ fontSize: 14, color: T.highlightCardSubtext, paddingBottom: 8 }}>
+                    Learning objective{lowOutcomes === 1 ? "" : "s"}
+                  </span>
+                </div>
+              </div>
+              <div
+                style={highlightCard(activeCard === "subobjectives")}
+                onClick={() => toggleCard("subobjectives")}
+                title="Filter to objectives with low-proficiency sub-objectives"
+              >
+                <div style={{ fontSize: 16, fontWeight: 600, color: T.highlightCardText, lineHeight: 1.5 }}>
+                  Low Proficiency Sub-Objectives
+                </div>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 8, marginTop: 12 }}>
+                  <span style={{ fontSize: 32, fontWeight: 700, color: T.highlightCardText, lineHeight: 1.1 }}>
+                    {lowSubObjectives}
+                  </span>
+                  <span style={{ fontSize: 14, color: T.highlightCardSubtext, paddingBottom: 8 }}>
+                    Sub-objectives
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
           <a
             href="#"
             onClick={(e) => e.preventDefault()}
-            style={{ marginLeft: "auto", color: T.action, fontSize: 13, fontWeight: 700, textDecoration: "none" }}
+            style={{
+              color: T.action, fontSize: 14, fontWeight: 700, textDecoration: "none",
+              display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0, marginTop: 4,
+            }}
           >
-            Download CSV ⬇
+            Download CSV <span style={{ fontSize: 16 }}>⬇</span>
           </a>
         </div>
 
-        {/* overview cards — filters over the objectives below */}
-        <div style={{ display: "flex", gap: 14, marginBottom: 16 }}>
-          <div
-            style={summaryCard(activeCard === "support")}
-            onClick={() => toggleCard("support")}
-            title="Filter to objectives needing attention and view the struggling students"
-          >
-            <div style={{ fontSize: 12.5, fontWeight: 600, color: T.textHigh }}>🚨 Students Needing Support</div>
-            <div style={{ marginTop: 6 }}>
-              <span style={{ fontSize: 22, fontWeight: 700, color: T.textHigh }}>{strugglingStudents}</span>
-              <span style={{ fontSize: 12, color: T.textMuted, marginLeft: 6 }}>students</span>
-            </div>
-            <div style={{ fontSize: 11.5, color: T.textMuted, marginTop: 2 }}>
-              {activeCard === "support"
-                ? <span style={{ color: T.action, fontWeight: 700 }}>Filtering · click to clear</span>
-                : `${strugglingPct}% of class`}
-            </div>
-          </div>
-          <div
-            style={summaryCard(activeCard === "objectives")}
-            onClick={() => toggleCard("objectives")}
-            title="Filter the table to objectives needing attention"
-          >
-            <div style={{ fontSize: 12.5, fontWeight: 600, color: T.textHigh }}>⚠️ Objectives Needing Attention</div>
-            <div style={{ marginTop: 6 }}>
-              <span style={{ fontSize: 22, fontWeight: 700, color: T.textHigh }}>{lowOutcomes}</span>
-              <span style={{ fontSize: 12, color: T.textMuted, marginLeft: 6 }}>objective{lowOutcomes === 1 ? "" : "s"}</span>
-            </div>
-            <div style={{ fontSize: 11.5, color: T.textMuted, marginTop: 2 }}>
-              {activeCard === "objectives"
-                ? <span style={{ color: T.action, fontWeight: 700 }}>Filtering · click to clear</span>
-                : `${lowSubObjectives} sub-objectives`}
-            </div>
-          </div>
-          <div
-            style={summaryCard(activeCard === "ontrack")}
-            onClick={() => toggleCard("ontrack")}
-            title="Filter to objectives on track and view those students"
-          >
-            <div style={{ fontSize: 12.5, fontWeight: 600, color: T.textHigh }}>📈 Students On Track</div>
-            <div style={{ marginTop: 6 }}>
-              <span style={{ fontSize: 22, fontWeight: 700, color: T.textHigh }}>{onTrackStudents + watchStudents}</span>
-              <span style={{ fontSize: 12, color: T.textMuted, marginLeft: 6 }}>students</span>
-            </div>
-            <div style={{ fontSize: 11.5, color: T.textMuted, marginTop: 2 }}>
-              {activeCard === "ontrack"
-                ? <span style={{ color: T.action, fontWeight: 700 }}>Filtering · click to clear</span>
-                : `${onTrackStudents} on track · ${watchStudents} to watch`}
-            </div>
-          </div>
+        {/* instructional banner */}
+        <div style={{
+          border: `1px solid ${T.action}`, borderLeft: `3px solid ${T.action}`,
+          background: T.tableHover, borderRadius: 6, padding: "9px 15px 9px 17px", marginBottom: 12,
+          fontSize: 12.5, color: T.textHigh, lineHeight: 1.6,
+        }}>
+          <strong>Use learning objectives to identify:</strong>
+          <span style={{ fontWeight: 400, color: T.textLow }}>
+            {" "}Which concepts require additional attention, which students might need extra support, and what actions you can take to improve learning outcomes.
+          </span>
         </div>
 
         {/* filter bar */}
         <div style={{
-          display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 14,
-          border: `1px solid ${T.border}`, borderRadius: 8, padding: 8,
+          display: "inline-flex", alignItems: "center", gap: 12, marginBottom: 12,
+          background: "#fff", border: `1px solid ${T.border}`, borderRadius: 3,
+          padding: "0 10px", boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
         }}>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="🔍︎ Search"
-            style={{
-              fontFamily: T.font, fontSize: 13, padding: "6px 10px", width: 180,
-              border: `1px solid ${T.border}`, borderRadius: 6, outline: "none", color: T.textLow,
-            }}
-          />
-          <select
-            value={proficiencyFilter}
-            onChange={(e) => { setProficiencyFilter(e.target.value); setActiveCard(null); }}
-            style={{
-              fontFamily: T.font, fontSize: 13, padding: "6px 10px",
-              border: `1px solid ${T.border}`, borderRadius: 6, color: T.textLow, background: "#fff",
-            }}
-          >
-            <option value="All">Proficiency</option>
-            <option value="Needs Attention">Needs Attention</option>
-            <option value="Watch">Watch</option>
-            <option value="On Track">On Track</option>
-            <option value="Not enough data">Not enough data</option>
-          </select>
+          <div style={{ display: "flex", alignItems: "center", padding: "10px 0" }}>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search"
+              aria-label="Search learning objectives"
+              style={{
+                fontFamily: T.font, fontSize: 14, padding: "8px 12px 8px 36px", width: 224,
+                border: `1px solid ${T.border}`, borderRadius: 6, outline: "none", color: T.textLow,
+                background: `#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23757682'%3E%3Cpath d='M11.7 10.3l3.3 3.3-1.4 1.4-3.3-3.3a5 5 0 1 1 1.4-1.4zM6 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'/%3E%3C/svg%3E") no-repeat 10px center`,
+              }}
+            />
+          </div>
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 10,
+            border: `1px solid ${T.border}`, borderRadius: 3, padding: "8px 10px", height: 35,
+          }}>
+            <select
+              value={proficiencyFilter}
+              onChange={(e) => { setProficiencyFilter(e.target.value); setActiveCard(null); }}
+              style={{
+                fontFamily: T.font, fontSize: 16, fontWeight: 600, padding: 0,
+                border: "none", color: T.textHigh, background: "transparent", outline: "none",
+                cursor: "pointer", appearance: "none", paddingRight: 20,
+              }}
+            >
+              <option value="All">Proficiency</option>
+              <option value="Needs Attention">Needs Attention</option>
+              <option value="Watch">Watch</option>
+              <option value="On Track">On Track</option>
+              <option value="Not enough data">Not enough data</option>
+            </select>
+            <span style={{ fontSize: 10, color: T.textMuted, marginLeft: -16 }}>⌄</span>
+          </div>
           <button
             onClick={() => { setSearch(""); setProficiencyFilter("All"); setActiveCard(null); setBucketSelections({}); }}
             style={{
-              fontFamily: T.font, fontSize: 13, color: T.textLow, background: "none",
-              border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5,
+              fontFamily: T.font, fontSize: 14, color: T.textHigh, background: "none",
+              border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+              padding: "10px",
             }}
           >
-            🗑 Clear All Filters
+            <span style={{ fontSize: 16 }} aria-hidden>🗑</span> Clear All Filters
           </button>
         </div>
 
-        {/* instructional banner — what this page is for */}
-        <div style={{
-          border: `1px solid ${T.border}`, borderLeft: `3px solid ${T.action}`,
-          background: T.tableHover, borderRadius: 6, padding: "8px 14px", marginBottom: 14,
-          fontSize: 12.5, color: T.textLow, lineHeight: 1.6,
-        }}>
-          <strong style={{ color: T.textHigh }}>Use learning objectives to identify:</strong>{" "}
-          • which students need support &nbsp;• which concepts students struggle with&nbsp; • and which activities may need review.
-        </div>
-
-        <div style={{ fontSize: 11.5, color: T.textMuted, marginBottom: 6 }}>
-          Sorted by priority — objectives needing attention first
-        </div>
-
         {/* objectives table */}
-        <div style={{ border: `1px solid ${T.border}`, borderRadius: 6, overflow: "hidden" }}>
+        <div style={{ border: `1px solid ${T.border}`, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={{ ...th, width: 34 }} />
-                <th style={th}>Learning Objective ⌄</th>
-                <th style={{ ...th, width: 150 }}>ⓘ Student Proficiency ⌄</th>
-                <th style={{ ...th, width: 180 }}>Proficiency Distribution</th>
-                <th style={{ ...th, width: 130 }}>Related Activities</th>
+                <th style={{ ...th, width: 48 }} />
+                <th style={th}>
+                  Learning Objective <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span>
+                </th>
+                <th style={{ ...th, width: 220 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: T.textMuted, fontSize: 14 }} aria-hidden>ⓘ</span>
+                    Student Proficiency <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span>
+                  </span>
+                </th>
+                <th style={{ ...th, width: 200 }}>Proficiency Distribution</th>
+                <th style={{ ...th, width: 200, paddingLeft: 25 }}>Related Activities</th>
               </tr>
             </thead>
             <tbody>
@@ -1791,10 +2067,11 @@ function LearningObjectivesCard({ onViewActivities }) {
                   </td>
                 </tr>
               )}
-              {rows.map((lo) => (
+              {rows.map((lo, i) => (
                 <ObjectiveRow
                   key={lo.id}
                   objective={lo}
+                  rowIndex={i}
                   expanded={expandedIds.has(lo.id)}
                   onToggleExpand={() => toggleExpand(lo.id)}
                   selectedBucket={bucketSelections[lo.id] ?? null}
