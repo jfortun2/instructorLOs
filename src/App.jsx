@@ -31,6 +31,54 @@ const T = {
   shadow: "0 2px 10px rgba(0, 50, 99, 0.10)",
 };
 
+const ICONS = {
+  trash: "/icons/trash.png",
+  mail: "/icons/mail-up.png",
+  warning: "/icons/warning.png",
+  practice: "/icons/20px/practice.png",
+  users: "/icons/20px/users.png",
+  chevronDown: "/icons/chevron-down.png",
+};
+
+function AppIcon({ src, size = 16, alt = "" }) {
+  return (
+    <img
+      src={src}
+      alt={alt}
+      width={size}
+      height={size}
+      style={{ display: "block", flexShrink: 0 }}
+      aria-hidden={!alt}
+    />
+  );
+}
+
+function ChevronIcon({ direction = "down", size = 12, inverted = false, style }) {
+  return (
+    <img
+      src={ICONS.chevronDown}
+      alt=""
+      width={size}
+      height={size}
+      aria-hidden
+      style={{
+        display: "block",
+        flexShrink: 0,
+        transform: direction === "up" ? "rotate(180deg)" : undefined,
+        filter: inverted ? "brightness(0) invert(1)" : undefined,
+        ...style,
+      }}
+    />
+  );
+}
+
+const BUCKET_CHIP_KEY = {
+  none: "Not enough data",
+  low: "Needs Attention",
+  medium: "Watch",
+  high: "On Track",
+};
+
 // Figma dashboard table uses Low / Medium / High labels on proficiency pills.
 const CHIP_FIGMA = {
   "Needs Attention": { label: "Low", bg: T.dangerFill, color: "#b60202", warn: true, chevron: false },
@@ -52,42 +100,149 @@ const BUCKET_CARD_LABELS = {
 const PROFICIENCY_ESTIMATE_INTRO =
   "Proficiency is our best estimate of how likely students are to successfully demonstrate the skills associated with a learning objective based on evidence collected from related learning activities. As students complete more practice and assessments, Torus continuously updates this estimate using their successes, mistakes, and practice history. Proficiency is an estimate and becomes more reliable as more evidence is collected.";
 
-const PROFICIENCY_ESTIMATE_LEVELS = [
-  {
-    label: "Not Enough Data",
-    text: "There isn't enough evidence yet to estimate student proficiency. Encourage students to complete more learning activities before drawing conclusions.",
-  },
-  {
-    label: "Low Proficiency",
-    text: "Current evidence suggests students are unlikely to successfully demonstrate this learning objective without additional support or practice.",
-  },
-  {
-    label: "Medium Proficiency",
-    text: "Current evidence suggests students are developing this learning objective but may benefit from additional practice to build consistency.",
-  },
-  {
-    label: "High Proficiency",
-    text: "Current evidence suggests students are likely to successfully demonstrate this learning objective on future opportunities.",
-  },
-];
+const CONFIDENCE_INTRO =
+  "Confidence reflects how much activity evidence supports a proficiency estimate — separate from the level itself. For example, Low proficiency with High confidence means the estimate is reliable and action-worthy; Low proficiency with Low confidence suggests waiting for more evidence before intervening.";
 
-function HowProficiencyEstimatedCard() {
-  const body = { fontSize: 12.5, color: T.textLow, lineHeight: "19.38px" };
+const CONFIDENCE_LEVELS = {
+  high: {
+    label: "High confidence",
+    short: "High",
+    desc: "Enough related activity evidence to support this proficiency estimate.",
+    bg: "#eef4fb",
+    color: "#1b4f8a",
+  },
+  medium: {
+    label: "Medium confidence",
+    short: "Medium",
+    desc: "Moderate activity evidence — the estimate may shift as students complete more work.",
+    bg: "#f3f4f8",
+    color: "#45464c",
+  },
+  low: {
+    label: "Low confidence",
+    short: "Low",
+    desc: "Limited activity evidence — interpret this proficiency estimate cautiously.",
+    bg: "#f3f4f8",
+    color: "#757682",
+  },
+};
+
+function ProficiencyKeyPanel() {
+  const [open, setOpen] = useState(false);
+
+  const proficiencyItems = [
+    { chip: "Not enough data", text: "Too little activity evidence for a reliable estimate." },
+    { chip: "Needs Attention", text: "Unlikely to demonstrate this objective without additional support." },
+    { chip: "Watch", text: "Developing — may benefit from more practice to build consistency." },
+    { chip: "On Track", text: "Likely to demonstrate this objective on future opportunities." },
+  ];
+
+  const row = { display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 10 };
+  const label = {
+    fontSize: 11, fontWeight: 700, color: T.textMuted,
+    textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 10,
+  };
+
   return (
     <div style={{
-      marginTop: 12, background: "#fff", border: `1px solid ${T.border}`,
-      borderRadius: 6, padding: "11px 15px", maxWidth: 640,
-      display: "flex", flexDirection: "column", gap: 8,
+      border: `1px solid ${T.action}`, borderLeft: `3px solid ${T.action}`,
+      borderRadius: 6, background: T.tableHover,
+      marginBottom: 16, overflow: "hidden",
     }}>
-      <p style={{ ...body, margin: 0 }}>{PROFICIENCY_ESTIMATE_INTRO}</p>
-      <div style={{ paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
-        {PROFICIENCY_ESTIMATE_LEVELS.map((level) => (
-          <p key={level.label} style={{ ...body, margin: 0 }}>
-            <strong style={{ fontWeight: 700, color: T.textLow }}>{level.label}: </strong>
-            {level.text}
-          </p>
-        ))}
+      <div style={{
+        padding: "12px 18px",
+        fontSize: 12.5, color: T.textHigh, lineHeight: 1.6,
+        borderBottom: `1px solid ${T.border}`,
+      }}>
+        <strong>Use learning objectives to identify:</strong>
+        <span style={{ fontWeight: 400, color: T.textLow }}>
+          {" "}Which concepts require additional attention, which students might need extra support, and what actions you can take to improve learning outcomes.
+        </span>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={`${open ? "Hide" : "Show"} key to proficiency levels and confidence`}
+        style={{
+          display: "flex", alignItems: "center", gap: 10,
+          width: "100%", padding: "10px 18px",
+          cursor: "pointer", fontFamily: T.font, textAlign: "left",
+          background: "#fff",
+          border: "none",
+          borderTop: `1px solid ${T.border}`,
+          borderBottom: open ? `1px solid ${T.border}` : "none",
+        }}
+      >
+        <span
+          style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            width: 24, height: 24, borderRadius: 3, flexShrink: 0,
+            background: open ? T.action : T.rowStripe,
+          }}
+          aria-hidden
+        >
+          <ChevronIcon direction={open ? "up" : "down"} size={12} inverted={open} />
+        </span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: T.link, flex: 1 }}>
+          Key to proficiency levels and confidence
+        </span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: T.textMuted, flexShrink: 0 }}>
+          {open ? "Hide key" : "Show key"}
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ padding: "14px 18px 16px", background: "#fff" }}>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "8px 32px",
+          }}>
+            <div>
+              <div style={label}>Proficiency level</div>
+              {proficiencyItems.map((item) => (
+                <div key={item.chip} style={row}>
+                  <Chip label={item.chip} scope="" variant="figma" />
+                  <span style={{ fontSize: 13, color: T.textLow, lineHeight: 1.45, paddingTop: 4 }}>
+                    {item.text}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <div style={label}>Confidence in estimate</div>
+              <p style={{ fontSize: 13, color: T.textMuted, margin: "0 0 10px", lineHeight: 1.45 }}>
+                Separate from level — how much activity evidence supports the rating.
+              </p>
+              {(["high", "medium", "low"]).map((level) => (
+                <div key={level} style={row}>
+                  <ConfidenceBadge level={level} variant="compact" />
+                  <span style={{ fontSize: 13, color: T.textLow, lineHeight: 1.45, paddingTop: 2 }}>
+                    {CONFIDENCE_LEVELS[level].desc}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{
+            marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.border}`,
+            display: "flex", flexDirection: "column", gap: 8,
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: 0.4 }}>
+              How estimates are calculated
+            </div>
+            <p style={{ margin: 0, fontSize: 12.5, color: T.textLow, lineHeight: 1.55 }}>
+              {PROFICIENCY_ESTIMATE_INTRO}
+            </p>
+            <p style={{ margin: 0, fontSize: 12.5, color: T.textLow, lineHeight: 1.55 }}>
+              {CONFIDENCE_INTRO}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -330,6 +485,7 @@ const OBJECTIVES = [
     id: "lo-density",
     title: "Apply the density equation to calculate mass, volume and density of a solid or liquid.",
     chip: "Needs Attention",
+    confidence: "high",
     dist: [3, 14, 6, 7],
     activitiesCount: 9,
     activities: DENSITY_ACTIVITIES,
@@ -344,7 +500,7 @@ const OBJECTIVES = [
     subObjectives: [
       {
         title: "Derive the rate law consistent with a given reaction mechanism.",
-        chip: "Needs Attention", dist: [4, 12, 8, 6],
+        chip: "Needs Attention", confidence: "medium", dist: [4, 12, 8, 6],
         relatedActivities: [
           { name: "Rate Law Practice", type: "Practice", correctness: 42, completion: 61 },
           { name: "Reaction Mechanism Quiz", type: "Quiz", correctness: 51, completion: 72 },
@@ -353,7 +509,7 @@ const OBJECTIVES = [
       },
       {
         title: "Describe the effects of chemical nature, physical state, temperature, concentration, and catalysis on reaction rates.",
-        chip: "Needs Attention", dist: [3, 13, 8, 6],
+        chip: "Needs Attention", confidence: "medium", dist: [3, 13, 8, 6],
         relatedActivities: [
           { name: "Temperature Effects Lab", type: "Lab", correctness: 48, completion: 70 },
           { name: "Concentration & Rate Quiz", type: "Quiz", correctness: 53, completion: 66 },
@@ -367,6 +523,7 @@ const OBJECTIVES = [
     id: "lo-molarity-1",
     title: "Apply the molarity equation to calculate the concentration of a solution.",
     chip: "Not enough data",
+    confidence: "low",
     dist: [20, 4, 3, 3],
     activitiesCount: 1,
     activities: null,
@@ -376,6 +533,7 @@ const OBJECTIVES = [
     id: "lo-sigfigs",
     title: "Apply the multiplication and division significant figure rule.",
     chip: "On Track",
+    confidence: "high",
     dist: [2, 3, 9, 16],
     activitiesCount: 14,
     activities: null,
@@ -385,6 +543,7 @@ const OBJECTIVES = [
     id: "lo-molarity-2",
     title: "Apply the molarity equation to calculate the concentration of a solution.",
     chip: "Watch",
+    confidence: "medium",
     dist: [3, 6, 12, 9],
     activitiesCount: 10,
     activities: null,
@@ -394,6 +553,7 @@ const OBJECTIVES = [
     id: "lo-molarity-3",
     title: "Apply the molarity equation to calculate the concentration of a solution.",
     chip: "Watch",
+    confidence: "low",
     dist: [2, 7, 13, 8],
     activitiesCount: 3,
     activities: null,
@@ -434,6 +594,20 @@ function proficiencyScoreFor(bucket, k, cursor, loIndex) {
   return min + Math.min(span, (slot * step) % (span + 1));
 }
 
+function confidenceForStudent(bucket, attempted, activitiesCount, loIndex) {
+  if (bucket === "none") return "low";
+  if (activitiesCount <= 1) return attempted >= 1 ? "medium" : "low";
+  if (loIndex === 0 && bucket === "low") {
+    if (attempted >= 6) return "high";
+    if (attempted >= 3) return "medium";
+    return "low";
+  }
+  const ratio = attempted / activitiesCount;
+  if (ratio >= 0.65) return "high";
+  if (ratio >= 0.35) return "medium";
+  return "low";
+}
+
 function buildRoster(objective, loIndex) {
   const rotated = STUDENT_NAMES.map((_, i, arr) => arr[(i + loIndex * 7) % arr.length]);
   const roster = [];
@@ -467,6 +641,7 @@ function buildRoster(objective, loIndex) {
       roster.push({
         id: `${objective.id}-${name}`, name, email: emailFor(name), bucket,
         attempted, correctness, lastActivity, proficiencyScore,
+        confidence: confidenceForStudent(bucket, attempted, n, loIndex),
       });
       cursor++;
     }
@@ -499,13 +674,46 @@ function Chip({ label, scope, variant = "default" }) {
       }}
     >
       {variant === "figma" && s.warn && (
-        <span style={{ fontSize: 14, lineHeight: 1 }} aria-hidden>⚠</span>
+        <AppIcon src={ICONS.warning} size={16} />
       )}
       {displayLabel}
       {variant === "figma" && s.chevron && (
-        <span style={{ fontSize: 10, opacity: 0.7 }} aria-hidden>⌄</span>
+        <ChevronIcon size={10} style={{ opacity: 0.7 }} />
       )}
     </span>
+  );
+}
+
+function ConfidenceBadge({ level, variant = "default" }) {
+  const c = CONFIDENCE_LEVELS[level];
+  if (!c) return null;
+  const compact = variant === "compact";
+  return (
+    <span
+      title={c.desc}
+      style={{
+        display: "inline-flex", alignItems: "center",
+        fontSize: compact ? 12 : 13,
+        fontWeight: 600,
+        color: c.color,
+        background: c.bg,
+        borderRadius: 999,
+        padding: compact ? "2px 8px" : "3px 10px",
+        whiteSpace: "nowrap",
+        cursor: "help",
+      }}
+    >
+      {compact ? c.short : c.label}
+    </span>
+  );
+}
+
+function ProficiencyCell({ chipLabel, confidence, scope }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
+      <Chip label={chipLabel} scope={scope} variant="figma" />
+      <ConfidenceBadge level={confidence} variant="compact" />
+    </div>
   );
 }
 
@@ -683,7 +891,7 @@ function ModulePager() {
         borderBottom: `2px solid #0073e5`, paddingBottom: 4, cursor: "pointer",
         display: "inline-flex", alignItems: "center", gap: 8, minWidth: 280, justifyContent: "center",
       }}>
-        Module 2: Reaction Rates <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span>
+        Module 2: Reaction Rates <ChevronIcon size={10} style={{ display: "inline-block", verticalAlign: "middle" }} />
       </span>
       <span style={{ color: T.action, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
         Next Module <span style={{ fontSize: 16 }}>›</span>
@@ -696,7 +904,7 @@ function ModulePager() {
 // Clickable proficiency bucket cards
 // ---------------------------------------------------------------------------
 
-function SecondaryActionButton({ children, onClick, icon }) {
+function SecondaryActionButton({ children, onClick, iconSrc }) {
   return (
     <button
       onClick={onClick}
@@ -707,7 +915,7 @@ function SecondaryActionButton({ children, onClick, icon }) {
         boxShadow: T.buttonShadow, display: "inline-flex", alignItems: "center", gap: 8,
       }}
     >
-      {icon && <span style={{ fontSize: 16, lineHeight: 1 }} aria-hidden>{icon}</span>}
+      {iconSrc && <AppIcon src={iconSrc} size={20} />}
       {children}
     </button>
   );
@@ -783,7 +991,7 @@ function ProficiencyBuckets({ roster, selectedBucket, onSelectBucket }) {
               <rect x={r.x} y={TRACK_Y} width={r.w} height={BAR_H} rx={4} fill={r.seg} />
               {dots.map((d, k) => (
                 <g key={`${d.student.id}-${k}`}>
-                  <title>{`${d.student.name}: ${d.score}% proficiency`}</title>
+                  <title>{`${d.student.name}: ${d.score}% proficiency · ${CONFIDENCE_LEVELS[d.student.confidence]?.short ?? ""} confidence`}</title>
                   <circle cx={d.cx} cy={d.cy} r={DOT_R} fill={r.dot} />
                 </g>
               ))}
@@ -970,6 +1178,8 @@ function StudentsPanel({ objective, bucketId, students, onClose }) {
   };
   const td = { padding: "10px", fontSize: 16, color: T.textLow, verticalAlign: "middle" };
 
+  const bucketChip = CHIP_FIGMA[BUCKET_CHIP_KEY[bucketId]];
+
   return (
     <div style={{ border: `1px solid ${T.border}`, borderRadius: 9, background: "#fff", overflow: "hidden" }}>
       <div style={{
@@ -980,8 +1190,10 @@ function StudentsPanel({ objective, bucketId, students, onClose }) {
           {bucket.panel}
         </span>
         <span style={{
-          fontSize: 12, fontWeight: 600, color: "#ff8787", background: "#33181a",
-          borderRadius: 999, padding: "4px 6px", lineHeight: 1,
+          fontSize: 12, fontWeight: 600,
+          color: bucketChip.color,
+          background: bucketChip.bg,
+          borderRadius: 999, padding: "4px 8px", lineHeight: 1,
         }}>
           {students.length}
         </span>
@@ -991,14 +1203,16 @@ function StudentsPanel({ objective, bucketId, students, onClose }) {
             disabled={selectedCount === 0}
             style={{
               fontFamily: T.font, cursor: selectedCount === 0 ? "default" : "pointer",
-              background: selectedCount === 0 ? "#e6e7ec" : "#0062f2",
-              color: selectedCount === 0 ? T.textMuted : "#fff",
-              border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 14, fontWeight: 600,
+              background: "#fff",
+              color: selectedCount === 0 ? T.textMuted : T.action,
+              border: `1px solid ${selectedCount === 0 ? T.border : T.buttonBorderBold}`,
+              borderRadius: 6, padding: "8px 16px", fontSize: 14, fontWeight: 600,
               boxShadow: selectedCount === 0 ? "none" : T.buttonShadow,
               display: "inline-flex", alignItems: "center", gap: 8,
+              opacity: selectedCount === 0 ? 0.7 : 1,
             }}
           >
-            ✉ Email <span style={{ fontSize: 12 }}>⌄</span>
+            <AppIcon src={ICONS.mail} size={16} /> Email
           </button>
           <button
             onClick={onClose}
@@ -1034,8 +1248,8 @@ function StudentsPanel({ objective, bucketId, students, onClose }) {
               <th style={{ ...th, width: 49, textAlign: "center" }}>
                 <input type="checkbox" checked={allChecked} onChange={onToggleAll} style={{ accentColor: T.action, cursor: "pointer" }} />
               </th>
-              <th style={th}>Student Name <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span></th>
-              <th style={th}>Activities Attempted <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span></th>
+              <th style={th}>Student Name <ChevronIcon size={10} style={{ display: "inline-block", verticalAlign: "middle", marginLeft: 4 }} /></th>
+              <th style={th}>Activities Attempted <ChevronIcon size={10} style={{ display: "inline-block", verticalAlign: "middle", marginLeft: 4 }} /></th>
               <th style={th}>Avg. Correctness</th>
               <th style={th}>Last Activity</th>
             </tr>
@@ -1109,81 +1323,278 @@ function StudentsPanel({ objective, bucketId, students, onClose }) {
 // ---------------------------------------------------------------------------
 // AI recommendation panel (Figma expanded LO view)
 // ---------------------------------------------------------------------------
-function AIRecommendation({ objective, roster, onViewStruggling, onReviewActivity, onEmailStruggling }) {
-  const [dismissed, setDismissed] = useState(false);
-  const lowCount = roster.filter((s) => s.bucket === "low").length;
-  const weakest = objective.activities
-    ? objective.activities.reduce((min, a) => (a.correctness < min.correctness ? a : min))
-    : null;
-  const activityNum = weakest?.name.match(/Activity (\d+)/)?.[1] ?? "1";
 
-  const recommendationText = objective.id === "lo-density"
-    ? "Students are struggling with applying the density equation, but the data suggests this is a conceptual gap, not a participation issue. Most students with Low proficiency completed the related practice activities yet continue selecting incorrect formulas when rearranging the equation for mass, volume, or density."
-    : `Students are struggling with ${objective.title.charAt(0).toLowerCase()}${objective.title.slice(1)}, but the data suggests this is a conceptual gap, not a participation issue. Most students with Low proficiency completed related activities yet continue to demonstrate gaps in understanding.`;
+function bucketCounts(roster) {
+  return Object.fromEntries(
+    BUCKETS.map((b) => [b.id, roster.filter((s) => s.bucket === b.id).length]),
+  );
+}
 
-  if (dismissed) return null;
+function weakestActivity(objective) {
+  if (!objective.activities?.length) return null;
+  return objective.activities.reduce((min, a) => (a.correctness < min.correctness ? a : min));
+}
+
+function densityMisconception() {
+  const item = DENSITY_QUESTION_ITEMS.find((q) => q.id === 3);
+  if (!item?.answers) return null;
+  const wrong = item.answers
+    .filter((a) => !a.correct && a.text !== "No answer / skipped")
+    .reduce((max, a) => (!max || a.count > max.count ? a : max), null);
+  return wrong ? { answer: wrong.text, count: wrong.count } : null;
+}
+
+function getAIRecommendation(objective, roster) {
+  const counts = bucketCounts(roster);
+  const lowCount = counts.low;
+  const noneCount = counts.none;
+  const highCount = counts.high;
+  const mediumCount = counts.medium;
+  const weakest = weakestActivity(objective);
+  const activityNum = weakest?.name.match(/Activity (\d+)/)?.[1];
+  const highActivityLow = roster.filter(
+    (s) => isHighActivityLowProficiency(s, objective.activitiesCount),
+  ).length;
+  const n = objective.activitiesCount;
+
+  switch (objective.id) {
+    case "lo-density": {
+      const misc = densityMisconception();
+      const miscPhrase = misc
+        ? `the most common incorrect rearrangement (${misc.answer}, selected by ${misc.count} students on first attempt)`
+        : "common rearrangement errors in Activity 4";
+      return {
+        text: `Evidence suggests a class-wide conceptual gap in rearranging the density equation: ${lowCount} of ${TOTAL_STUDENTS} students show Low proficiency with high confidence in the estimate, supported by substantial evidence across ${n} linked activities. Consider beginning class with targeted practice on ${weakest?.name ?? "Activity 4"}, then facilitate discussion around ${miscPhrase}.`,
+        steps: {
+          review: weakest && activityNum ? {
+            label: `Review Activity ${activityNum}`,
+            desc: `Open ${weakest.name} (${weakest.correctness}% class correctness, ${weakest.completion}% completion) and inspect first-attempt responses on equation rearrangement.`,
+          } : null,
+          viewStudents: lowCount > 0 ? {
+            label: `View ${lowCount} Students`,
+            desc: `Compare attempt history across ${lowCount} Low-proficiency students — ${highActivityLow} completed ≥60% of activities yet remain Low, suggesting a misconception rather than low participation.`,
+            bucket: "low",
+          } : null,
+          email: highActivityLow > 0 ? {
+            label: "Email Students",
+            desc: `Consider inviting the ${highActivityLow} students who practiced extensively but remain Low to retry linked activities and review feedback on density rearrangement before the assessment.`,
+            bucket: "low",
+          } : null,
+        },
+      };
+    }
+
+    case "lo-molarity-1":
+      return {
+        text: `Proficiency estimates for this objective are not yet reliable: ${noneCount} of ${TOTAL_STUDENTS} students have Not Enough Data, with only ${n} related ${n === 1 ? "activity" : "activities"} linked and low confidence in class-level estimates. Consider encouraging completion of the associated Learn by Doing before interpreting Low or Medium proficiency levels.`,
+        steps: {
+          review: null,
+          viewStudents: noneCount > 0 ? {
+            label: `View ${noneCount} Students`,
+            desc: `Identify the ${noneCount} students with Not Enough Data — with only ${n} linked ${n === 1 ? "activity" : "activities"}, their proficiency cannot yet be estimated reliably.`,
+            bucket: "none",
+          } : lowCount > 0 ? {
+            label: `View ${lowCount} Students`,
+            desc: `Review the ${lowCount} students currently estimated Low — with limited activity coverage, their estimates may change as more evidence is collected.`,
+            bucket: "low",
+          } : null,
+          email: noneCount > 0 ? {
+            label: "Email Students",
+            desc: `Consider reminding the ${noneCount} students who have not yet generated enough evidence to complete the linked activity before you interpret class-wide proficiency.`,
+            bucket: "none",
+          } : null,
+        },
+      };
+
+    case "lo-sigfigs":
+      return {
+        text: `Evidence suggests strong mastery on this objective: ${highCount} of ${TOTAL_STUDENTS} students show High proficiency with high confidence across ${n} linked activities, with only ${lowCount} Low. You may want to spend less class time reviewing multiplication and division significant figure rules and reallocate attention to objectives with greater instructional need.`,
+        steps: {
+          review: null,
+          viewStudents: lowCount > 0 ? {
+            label: `View ${lowCount} Students`,
+            desc: `With only ${lowCount} students estimated Low, consider brief individual or small-group check-ins on applying the multiplication/division rule rather than a full-class review.`,
+            bucket: "low",
+          } : null,
+          email: null,
+        },
+      };
+
+    case "lo-molarity-2":
+      return {
+        text: `${lowCount} students show Low proficiency and ${mediumCount} are at Medium on applying the molarity equation — evidence of developing but uneven mastery across ${n} linked activities. Consider assigning additional formative practice to the Low group and using a short in-class check on M = n/V before the next assessment.`,
+        steps: {
+          review: null,
+          viewStudents: lowCount > 0 ? {
+            label: `View ${lowCount} Students`,
+            desc: `Review attempt history for the ${lowCount} Low-proficiency students and identify whether gaps reflect incomplete practice or persistent calculation errors.`,
+            bucket: "low",
+          } : null,
+          email: lowCount > 0 && lowCount <= 8 ? {
+            label: "Email Students",
+            desc: `Consider reaching out to the ${lowCount} Low-proficiency students with links to linked practice activities and an invitation to attempt them before the assessment.`,
+            bucket: "low",
+          } : null,
+        },
+      };
+
+    case "lo-molarity-3":
+      return {
+        text: `With only ${n} linked activities, many students are still building evidence for this objective; ${lowCount} currently show Low proficiency and ${noneCount} have Not Enough Data — confidence in these estimates remains low. Consider encouraging completion of remaining Learn by Doing opportunities, then reviewing responses with students who remain Low after multiple attempts.`,
+        steps: {
+          review: null,
+          viewStudents: lowCount > 0 ? {
+            label: `View ${lowCount} Students`,
+            desc: `Examine the ${lowCount} Low-proficiency students' attempt history across the ${n} available activities to determine whether additional practice or misconception review is needed.`,
+            bucket: "low",
+          } : null,
+          email: (lowCount + noneCount) > 0 ? {
+            label: "Email Students",
+            desc: `Consider encouraging students with Low proficiency or Not Enough Data to complete the ${n} linked activities so estimates reflect their current understanding.`,
+            bucket: lowCount > 0 ? "low" : "none",
+          } : null,
+        },
+      };
+
+    default:
+      return {
+        text: `Evidence suggests ${lowCount} of ${TOTAL_STUDENTS} students show Low proficiency on this objective. Consider reviewing linked activities and student attempt history before the next assessment.`,
+        steps: {
+          review: weakest && activityNum ? {
+            label: `Review Activity ${activityNum}`,
+            desc: `Inspect ${weakest.name}, the lowest-performing linked activity (${weakest.correctness}% correctness).`,
+          } : null,
+          viewStudents: lowCount > 0 ? {
+            label: `View ${lowCount} Students`,
+            desc: `Compare attempt history across students estimated Low on this objective.`,
+            bucket: "low",
+          } : null,
+          email: lowCount > 0 ? {
+            label: "Email Students",
+            desc: `Consider inviting Low-proficiency students to complete linked practice before the assessment.`,
+            bucket: "low",
+          } : null,
+        },
+      };
+  }
+}
+
+function AIRecommendation({ objective, roster, onSelectBucket, onReviewActivity }) {
+  const [open, setOpen] = useState(false);
+  const { text: recommendationText, steps: stepConfig } = getAIRecommendation(objective, roster);
 
   const steps = [
-    weakest && {
-      icon: "📋",
-      label: `Review Activity ${activityNum}`,
-      desc: "Investigate the lowest-performing activity attached to this objective.",
+    stepConfig.review && {
+      iconSrc: ICONS.practice,
+      ...stepConfig.review,
       onClick: onReviewActivity,
     },
-    lowCount > 0 && {
-      icon: "👥",
-      label: `View ${lowCount} Students`,
-      desc: "See which students are struggling and compare their attempts.",
-      onClick: onViewStruggling,
+    stepConfig.viewStudents && {
+      iconSrc: ICONS.users,
+      ...stepConfig.viewStudents,
+      onClick: () => onSelectBucket(stepConfig.viewStudents.bucket),
     },
-    lowCount > 0 && {
-      icon: "✉",
-      label: "Email Students",
-      desc: "Send a reminder encouraging another attempt before the upcoming assessment.",
-      onClick: onEmailStruggling,
+    stepConfig.email && {
+      iconSrc: ICONS.mail,
+      ...stepConfig.email,
+      onClick: () => onSelectBucket(stepConfig.email.bucket),
     },
   ].filter(Boolean);
 
+  if (steps.length === 0) return null;
+
+  const cardShell = {
+    border: `1px solid ${T.border}`,
+    borderLeft: `3px solid ${T.action}`,
+    borderRadius: 6,
+    background: "#fff",
+    overflow: "hidden",
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{
+          ...cardShell,
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          width: "100%",
+          padding: "14px 18px",
+          cursor: "pointer",
+          fontFamily: T.font,
+          textAlign: "left",
+        }}
+      >
+        <span style={{ fontSize: 18, lineHeight: 1, color: T.action }} aria-hidden>✦</span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: T.textHigh }}>
+            Suggest next steps
+          </span>
+          <span style={{ display: "block", fontSize: 13, color: T.textMuted, marginTop: 2 }}>
+            View recommendations based on proficiency and activity data for this objective
+          </span>
+        </span>
+        <span style={{ color: T.action, fontSize: 20, lineHeight: 1, flexShrink: 0 }} aria-hidden>›</span>
+      </button>
+    );
+  }
+
   return (
-    <div style={{
-      background: T.tableHover, border: `1px solid ${T.action}`, borderLeft: `3px solid ${T.action}`,
-      borderRadius: 6, padding: "13px 17px 13px 19px",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 9 }}>
-        <span style={{ fontSize: 22, lineHeight: 1 }} aria-hidden>✦</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: T.textHigh, textTransform: "uppercase", flex: 1 }}>
-          AI Recommendation
+    <div style={cardShell}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 10,
+        padding: "12px 18px", background: T.tableHover,
+        borderBottom: `1px solid ${T.border}`,
+      }}>
+        <span style={{ fontSize: 18, lineHeight: 1, color: T.action }} aria-hidden>✦</span>
+        <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: T.textHigh }}>
+          Next steps
         </span>
         <button
-          onClick={() => setDismissed(true)}
-          title="Dismiss recommendation"
+          type="button"
+          onClick={() => setOpen(false)}
           style={{
             fontFamily: T.font, background: "none", border: "none", cursor: "pointer",
-            color: T.textMuted, fontSize: 18, lineHeight: 1, padding: 4,
+            color: T.link, fontSize: 13, fontWeight: 600, padding: "4px 0",
           }}
         >
-          ×
+          Hide
         </button>
       </div>
-      <p style={{ margin: "0 0 16px", fontSize: 16, color: T.textLow, lineHeight: 1.5, maxWidth: 1060 }}>
-        {recommendationText}
-      </p>
-      <div style={{ paddingLeft: 18 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: T.textLow, textTransform: "uppercase", marginBottom: 12 }}>
-          Recommended next steps
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {steps.map((step) => (
-            <div key={step.label}>
-              <SecondaryActionButton icon={step.icon} onClick={step.onClick}>
-                {step.label}
-              </SecondaryActionButton>
-              <p style={{ margin: "6px 0 0", fontSize: 16, color: T.textLow, lineHeight: 1.5 }}>
-                {step.desc}
-              </p>
-            </div>
-          ))}
-        </div>
+
+      <div style={{ padding: "16px 18px 8px" }}>
+        <p style={{ margin: 0, fontSize: 16, color: T.textLow, lineHeight: 1.55, maxWidth: 1060 }}>
+          {recommendationText}
+        </p>
+      </div>
+
+      <div style={{ padding: "4px 18px 12px" }}>
+        {steps.map((step, i) => (
+          <div
+            key={step.label}
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 16,
+              padding: "14px 0",
+              borderTop: i === 0 ? `1px solid ${T.border}` : "none",
+              borderBottom: i < steps.length - 1 ? `1px solid ${T.rowStripe}` : "none",
+            }}
+          >
+            <SecondaryActionButton iconSrc={step.iconSrc} onClick={step.onClick}>
+              {step.label}
+            </SecondaryActionButton>
+            <p style={{
+              margin: 0, flex: 1, minWidth: 200, paddingTop: 8,
+              fontSize: 15, color: T.textLow, lineHeight: 1.5,
+            }}>
+              {step.desc}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1208,7 +1619,7 @@ function SubObjectivesTable({ subObjectives, onViewActivities, activitiesCount }
   if (subObjectives.length === 0) {
     return (
       <div style={{ fontSize: 14, color: T.textMuted, fontStyle: "italic", padding: "4px 2px" }}>
-        This objective has no sub-objectives. Activity-level details are available in the Scored Activities tab.
+        This objective has no sub-objectives.
       </div>
     );
   }
@@ -1219,10 +1630,10 @@ function SubObjectivesTable({ subObjectives, onViewActivities, activitiesCount }
         <thead>
           <tr>
             <th style={th}>
-              Sub-objective <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span>
+              Sub-objective <ChevronIcon size={10} style={{ display: "inline-block", verticalAlign: "middle", marginLeft: 4 }} />
             </th>
             <th style={{ ...th, width: 200 }}>
-              Student Proficiency <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span>
+              Student Proficiency
             </th>
             <th style={{ ...th, width: 220 }}>Proficiency Distribution</th>
             <th style={{ ...th, width: 200 }}>Related Activities</th>
@@ -1233,7 +1644,11 @@ function SubObjectivesTable({ subObjectives, onViewActivities, activitiesCount }
             <tr key={sub.title}>
               <td style={td}>{sub.title}</td>
               <td style={td}>
-                <Chip label={sub.chip} scope="Class-level status for this sub-objective." variant="figma" />
+                <ProficiencyCell
+                  chipLabel={sub.chip}
+                  confidence={sub.confidence}
+                  scope="Class-level status for this sub-objective."
+                />
               </td>
               <td style={td}>
                 <MiniDistBar dist={sub.dist} width={157} height={25} variant="figma" />
@@ -1265,7 +1680,6 @@ function SubObjectivesTable({ subObjectives, onViewActivities, activitiesCount }
 
 function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onSelectBucket, onViewActivities, rowIndex = 0 }) {
   const roster = ROSTERS[objective.id];
-  const [showHowEstimated, setShowHowEstimated] = useState(false);
 
   const bucketStudents = useMemo(
     () => (selectedBucket ? roster.filter((s) => s.bucket === selectedBucket) : []),
@@ -1297,9 +1711,8 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
             display: "inline-flex", alignItems: "center", justifyContent: "center",
             width: 24, height: 24, borderRadius: 3,
             background: expanded ? T.action : "transparent",
-            color: expanded ? "#fff" : T.textMuted, fontSize: 12,
           }}>
-            {expanded ? "⌃" : "⌄"}
+            <ChevronIcon direction={expanded ? "up" : "down"} size={12} inverted={expanded} />
           </span>
         </td>
         <td style={thRow}>
@@ -1340,15 +1753,12 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
             }}>
               {/* header + how-estimated disclosure */}
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 16, fontWeight: 700, color: T.textHigh }}>
                     Estimated Learning: {TOTAL_STUDENTS} Students
                   </span>
-                  <LinkButton onClick={() => setShowHowEstimated((v) => !v)} style={{ fontSize: 14, fontWeight: 700, color: T.link }}>
-                    ⓘ How is proficiency estimated?
-                  </LinkButton>
+                  <ConfidenceBadge level={objective.confidence} />
                 </div>
-                {showHowEstimated && <HowProficiencyEstimatedCard />}
               </div>
 
               <ProficiencyBuckets roster={roster} selectedBucket={selectedBucket} onSelectBucket={onSelectBucket} />
@@ -1366,9 +1776,8 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
               <AIRecommendation
                 objective={objective}
                 roster={roster}
-                onViewStruggling={() => onSelectBucket("low")}
+                onSelectBucket={onSelectBucket}
                 onReviewActivity={openActivities}
-                onEmailStruggling={() => onSelectBucket("low")}
               />
 
               <SubObjectivesTable
@@ -1666,9 +2075,8 @@ function ActivityQuestionRow({ item, index, open, onToggle }) {
             display: "inline-flex", alignItems: "center", justifyContent: "center",
             width: 24, height: 24, borderRadius: 3,
             background: open ? T.action : "transparent",
-            color: open ? "#fff" : T.textMuted, fontSize: 12,
           }}>
-            {open ? "⌃" : "⌄"}
+            <ChevronIcon direction={open ? "up" : "down"} size={12} inverted={open} />
           </span>
         </td>
         <td style={td}>
@@ -1683,7 +2091,7 @@ function ActivityQuestionRow({ item, index, open, onToggle }) {
         <td style={{ ...td, width: 196, fontWeight: 700, fontSize: 14, color: weak ? "#b60202" : T.textHigh }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             {item.correctPct}%
-            {weak && <span style={{ fontSize: 14 }} aria-hidden title="Needs attention">⚠</span>}
+            {weak && <AppIcon src={ICONS.warning} size={16} alt="Needs attention" />}
           </span>
         </td>
       </tr>
@@ -1746,7 +2154,7 @@ function ObjectiveActivitiesView({ objective, onBack }) {
       >
         {label}
       </select>
-      <span style={{ fontSize: 10, color: T.textMuted, marginLeft: -16 }}>⌄</span>
+      <ChevronIcon size={10} style={{ marginLeft: -16, pointerEvents: "none" }} />
     </div>
   );
 
@@ -1803,14 +2211,14 @@ function ObjectiveActivitiesView({ objective, onBack }) {
               padding: "10px",
             }}
           >
-            <span style={{ fontSize: 16 }} aria-hidden>🗑</span> Clear All Filters
+            <AppIcon src={ICONS.trash} size={16} /> Clear All Filters
           </button>
         </div>
       )}
 
       {items.length === 0 ? (
         <div style={{ fontSize: 14, color: T.textMuted, fontStyle: "italic", background: "#fff", padding: 24 }}>
-          Activity-level details for this objective are available in the Scored Activities tab.
+          No questions available for this objective.
         </div>
       ) : visibleItems.length === 0 ? (
         <div style={{ fontSize: 14, color: T.textMuted, fontStyle: "italic", padding: 16, background: "#fff" }}>
@@ -1823,9 +2231,9 @@ function ObjectiveActivitiesView({ objective, onBack }) {
               <thead>
                 <tr>
                   <th style={{ ...th, width: 51 }} />
-                  <th style={th}>Question Stem <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span></th>
-                  <th style={{ ...th, width: 171 }}>Attempts <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span></th>
-                  <th style={{ ...th, width: 196 }}>% Correct <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span></th>
+                  <th style={th}>Question Stem <ChevronIcon size={10} style={{ display: "inline-block", verticalAlign: "middle", marginLeft: 4 }} /></th>
+                  <th style={{ ...th, width: 171 }}>Attempts <ChevronIcon size={10} style={{ display: "inline-block", verticalAlign: "middle", marginLeft: 4 }} /></th>
+                  <th style={{ ...th, width: 196 }}>% Correct <ChevronIcon size={10} style={{ display: "inline-block", verticalAlign: "middle", marginLeft: 4 }} /></th>
                 </tr>
               </thead>
               <tbody>
@@ -1854,7 +2262,7 @@ function ObjectiveActivitiesView({ objective, onBack }) {
 function LearningObjectivesCard({ onViewActivities }) {
   const [search, setSearch] = useState("");
   const [proficiencyFilter, setProficiencyFilter] = useState("All");
-  const [expandedIds, setExpandedIds] = useState(new Set(["lo-density"]));
+  const [expandedIds, setExpandedIds] = useState(() => new Set());
   // Per-objective selected proficiency bucket — lifted so overview cards can drive it.
   const [bucketSelections, setBucketSelections] = useState({});
 
@@ -1976,17 +2384,7 @@ function LearningObjectivesCard({ onViewActivities }) {
           </a>
         </div>
 
-        {/* instructional banner */}
-        <div style={{
-          border: `1px solid ${T.action}`, borderLeft: `3px solid ${T.action}`,
-          background: T.tableHover, borderRadius: 6, padding: "9px 15px 9px 17px", marginBottom: 12,
-          fontSize: 12.5, color: T.textHigh, lineHeight: 1.6,
-        }}>
-          <strong>Use learning objectives to identify:</strong>
-          <span style={{ fontWeight: 400, color: T.textLow }}>
-            {" "}Which concepts require additional attention, which students might need extra support, and what actions you can take to improve learning outcomes.
-          </span>
-        </div>
+        <ProficiencyKeyPanel />
 
         {/* filter bar */}
         <div style={{
@@ -2026,7 +2424,7 @@ function LearningObjectivesCard({ onViewActivities }) {
               <option value="On Track">On Track</option>
               <option value="Not enough data">Not enough data</option>
             </select>
-            <span style={{ fontSize: 10, color: T.textMuted, marginLeft: -16 }}>⌄</span>
+            <ChevronIcon size={10} style={{ marginLeft: -16, pointerEvents: "none" }} />
           </div>
           <button
             onClick={() => { setSearch(""); setProficiencyFilter("All"); setActiveCard(null); setBucketSelections({}); }}
@@ -2036,7 +2434,7 @@ function LearningObjectivesCard({ onViewActivities }) {
               padding: "10px",
             }}
           >
-            <span style={{ fontSize: 16 }} aria-hidden>🗑</span> Clear All Filters
+            <AppIcon src={ICONS.trash} size={16} /> Clear All Filters
           </button>
         </div>
 
@@ -2047,13 +2445,10 @@ function LearningObjectivesCard({ onViewActivities }) {
               <tr>
                 <th style={{ ...th, width: 48 }} />
                 <th style={th}>
-                  Learning Objective <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span>
+                  Learning Objective <ChevronIcon size={10} style={{ display: "inline-block", verticalAlign: "middle", marginLeft: 4 }} />
                 </th>
                 <th style={{ ...th, width: 220 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ color: T.textMuted, fontSize: 14 }} aria-hidden>ⓘ</span>
-                    Student Proficiency <span style={{ fontSize: 12, fontWeight: 400 }}>⌄</span>
-                  </span>
+                  Student Proficiency
                 </th>
                 <th style={{ ...th, width: 200 }}>Proficiency Distribution</th>
                 <th style={{ ...th, width: 200, paddingLeft: 25 }}>Related Activities</th>
