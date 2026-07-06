@@ -462,6 +462,26 @@ function getActivityItems(objective) {
   }));
 }
 
+// Maps course activity numbers to question rows on the activity detail view.
+const ACTIVITY_NUMBER_TO_QUESTION_ID = {
+  "lo-density": {
+    1: 1, 2: 2, 3: 4, 4: 3, 5: 5, 6: 6, 7: 7, 8: 8, 9: 10,
+  },
+};
+
+function questionIdForActivityReview(objective, activityNum) {
+  const num = Number(activityNum);
+  if (!num) return null;
+  const items = getActivityItems(objective);
+  if (!items.length) return null;
+
+  const mapped = ACTIVITY_NUMBER_TO_QUESTION_ID[objective.id]?.[num];
+  if (mapped != null && items.some((i) => i.id === mapped)) return mapped;
+  if (items.some((i) => i.id === num)) return num;
+
+  return [...items].sort((a, b) => a.correctPct - b.correctPct)[0]?.id ?? null;
+}
+
 function isWeakActivity(correctPct) {
   return correctPct < WEAK_CORRECT_THRESHOLD;
 }
@@ -559,6 +579,26 @@ const OBJECTIVES = [
     activities: null,
     subObjectives: [],
   },
+  {
+    id: "lo-scatter-demo",
+    title: "Determine reaction order and rate constants from experimental concentration data.",
+    chip: "Needs Attention",
+    confidence: "medium",
+    scatterView: true,
+    dist: [2, 8, 11, 9],
+    activitiesCount: 8,
+    activities: [
+      { name: "Activity 1: Rate Law Introduction", type: "Learn", completion: 88, correctness: 74 },
+      { name: "Activity 2: Concentration vs. Rate Lab", type: "Lab", completion: 76, correctness: 58 },
+      { name: "Activity 3: Integrated Rate Laws", type: "Practice", completion: 71, correctness: 52 },
+      { name: "Activity 4: Order Determination Drill", type: "Practice", completion: 65, correctness: 44 },
+      { name: "Activity 5: Rate Constant Calculations", type: "Practice", completion: 58, correctness: 41 },
+      { name: "Activity 6: Experimental Data Analysis", type: "Lab", completion: 54, correctness: 38 },
+      { name: "Activity 7: Kinetics Checkpoint", type: "Quiz", completion: 49, correctness: 46 },
+      { name: "Activity 8: Cumulative Kinetics Review", type: "Assessment", completion: 42, correctness: 43 },
+    ],
+    subObjectives: [],
+  },
 ];
 
 // Deterministic per-objective roster: assigns the 30 students into the
@@ -608,7 +648,125 @@ function confidenceForStudent(bucket, attempted, activitiesCount, loIndex) {
   return "low";
 }
 
+const SCATTER_THRESHOLD = 50;
+
+const SCATTER_QUADRANTS = [
+  {
+    id: "tl",
+    label: "Working hard, struggling",
+    hint: "High participation · Low proficiency",
+    panel: "Students Working Hard but Struggling",
+    desc: "Highest instructional priority — students are attempting activities but not yet demonstrating proficiency.",
+    bg: "rgba(206, 44, 49, 0.10)",
+    dot: "#ce2c31",
+    badgeBg: "#feebed",
+    badgeColor: "#b60202",
+    priority: 1,
+  },
+  {
+    id: "bl",
+    label: "Low participation",
+    hint: "Low participation · Low proficiency",
+    panel: "Students with Low Participation & Proficiency",
+    desc: "May need outreach — limited activity evidence and low proficiency estimates.",
+    bg: "rgba(191, 91, 19, 0.08)",
+    dot: "#bf5b13",
+    badgeBg: "#ffecde",
+    badgeColor: "#91450e",
+    priority: 2,
+  },
+  {
+    id: "tr",
+    label: "Thriving",
+    hint: "High participation · High proficiency",
+    panel: "Students On Track",
+    desc: "Strong participation and proficiency — likely succeeding on this objective.",
+    bg: "rgba(33, 131, 88, 0.08)",
+    dot: "#218358",
+    badgeBg: "#e7fcf3",
+    badgeColor: "#175a3d",
+    priority: 4,
+  },
+  {
+    id: "br",
+    label: "Succeeding with less practice",
+    hint: "Low participation · High proficiency",
+    panel: "Students Succeeding with Less Practice",
+    desc: "Demonstrating proficiency with fewer attempts — likely lower instructional priority.",
+    bg: "rgba(0, 108, 217, 0.06)",
+    dot: "#006cd9",
+    badgeBg: "#eef4fb",
+    badgeColor: "#1b4f8a",
+    priority: 3,
+  },
+];
+
+function scatterQuadrantFor(proficiencyScore, completionPct) {
+  const highProf = proficiencyScore >= SCATTER_THRESHOLD;
+  const highComp = completionPct >= SCATTER_THRESHOLD;
+  if (highComp && highProf) return "tr";
+  if (highComp && !highProf) return "tl";
+  if (!highComp && !highProf) return "bl";
+  return "br";
+}
+
+function buildScatterRoster(objective, loIndex) {
+  const n = objective.activitiesCount;
+  const rotated = STUDENT_NAMES.map((_, i, arr) => arr[(i + loIndex * 7) % arr.length]);
+  const quadrantCounts = { tl: 8, bl: 6, tr: 9, br: 7 };
+  const profiles = [];
+
+  Object.entries(quadrantCounts).forEach(([qid, count]) => {
+    for (let j = 0; j < count; j++) {
+      let proficiencyScore;
+      let completionPct;
+      if (qid === "tl") {
+        proficiencyScore = 22 + ((j * 3) % 26);
+        completionPct = 58 + ((j * 4) % 36);
+      } else if (qid === "bl") {
+        proficiencyScore = 16 + ((j * 4) % 30);
+        completionPct = 10 + ((j * 3) % 36);
+      } else if (qid === "tr") {
+        proficiencyScore = 72 + ((j * 2) % 24);
+        completionPct = 68 + ((j * 3) % 30);
+      } else {
+        proficiencyScore = 66 + ((j * 3) % 28);
+        completionPct = 12 + ((j * 4) % 34);
+      }
+      profiles.push({ scatterQuadrant: qid, proficiencyScore, completionPct });
+    }
+  });
+
+  return rotated.map((name, i) => {
+    const p = profiles[i];
+    const attempted = Math.max(0, Math.min(n, Math.round((p.completionPct / 100) * n)));
+    const bucket =
+      p.proficiencyScore < 40 ? "low" :
+      p.proficiencyScore < 70 ? "medium" : "high";
+    const correctness =
+      p.scatterQuadrant === "tl" ? 24 + ((i * 5) % 18) :
+      p.scatterQuadrant === "bl" ? null :
+      p.scatterQuadrant === "tr" ? 76 + ((i * 4) % 18) :
+      72 + ((i * 3) % 15);
+    return {
+      id: `${objective.id}-${name}`,
+      name,
+      email: emailFor(name),
+      bucket,
+      scatterQuadrant: p.scatterQuadrant,
+      completionPct: p.completionPct,
+      attempted,
+      correctness,
+      lastActivity: attempted === 0 ? null : ["Today", "2 days ago", "4 days ago", "1 week ago"][i % 4],
+      proficiencyScore: p.proficiencyScore,
+      confidence: confidenceForStudent(bucket, attempted, n, loIndex),
+    };
+  });
+}
+
 function buildRoster(objective, loIndex) {
+  if (objective.scatterView) return buildScatterRoster(objective, loIndex);
+
   const rotated = STUDENT_NAMES.map((_, i, arr) => arr[(i + loIndex * 7) % arr.length]);
   const roster = [];
   let cursor = 0;
@@ -1036,6 +1194,200 @@ function ProficiencyBuckets({ roster, selectedBucket, onSelectBucket }) {
   );
 }
 
+function scatterJitter(id, axis) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i) + axis * 7) % 997;
+  return (h % 100) / 100 - 0.5;
+}
+
+function StudentDistributionPlot({ roster, selectedQuadrant, onSelectQuadrant }) {
+  const W = 720;
+  const H = 380;
+  const padL = 52;
+  const padR = 20;
+  const padT = 28;
+  const padB = 44;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const midX = padL + plotW * (SCATTER_THRESHOLD / 100);
+  const midY = padT + plotH * (1 - SCATTER_THRESHOLD / 100);
+  const DOT_R = 5;
+
+  const counts = Object.fromEntries(
+    SCATTER_QUADRANTS.map((q) => [q.id, roster.filter((s) => s.scatterQuadrant === q.id).length]),
+  );
+  const total = roster.length;
+
+  const toX = (score) => padL + (score / 100) * plotW;
+  const toY = (pct) => padT + (1 - pct / 100) * plotH;
+
+  const quadrantRegions = [
+    { id: "tl", x: padL, y: padT, w: midX - padL, h: midY - padT },
+    { id: "tr", x: midX, y: padT, w: padL + plotW - midX, h: midY - padT },
+    { id: "bl", x: padL, y: midY, w: midX - padL, h: padT + plotH - midY },
+    { id: "br", x: midX, y: midY, w: padL + plotW - midX, h: padT + plotH - midY },
+  ];
+
+  const quadrantMeta = Object.fromEntries(SCATTER_QUADRANTS.map((q) => [q.id, q]));
+
+  const quadrantLabelPos = {
+    tl: { x: padL + 8, y: padT + 16, anchor: "start" },
+    tr: { x: padL + plotW - 8, y: padT + 16, anchor: "end" },
+    bl: { x: padL + 8, y: padT + plotH - 8, anchor: "start" },
+    br: { x: padL + plotW - 8, y: padT + plotH - 8, anchor: "end" },
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 12, lineHeight: 1.5 }}>
+        Each dot is a student. Use the quadrants to spot who may need attention first — usability over precision.
+      </div>
+
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block", marginBottom: 20 }}>
+        {quadrantRegions.map((region) => {
+          const q = quadrantMeta[region.id];
+          const dim = selectedQuadrant && selectedQuadrant !== region.id;
+          const selected = selectedQuadrant === region.id;
+          const label = quadrantLabelPos[region.id];
+          return (
+            <g
+              key={region.id}
+              onClick={() => onSelectQuadrant(selected ? null : region.id)}
+              style={{ cursor: "pointer", opacity: dim ? 0.38 : 1, transition: "opacity 0.15s" }}
+            >
+              <title>{`${q.label}: ${counts[region.id]} students`}</title>
+              <rect
+                x={region.x} y={region.y} width={region.w} height={region.h}
+                fill={q.bg}
+                stroke={selected ? T.action : "transparent"}
+                strokeWidth={selected ? 2 : 0}
+              />
+              <text
+                x={label.x} y={label.y}
+                textAnchor={label.anchor}
+                fontSize="10.5" fill={T.textMuted} fontFamily={T.font} fontWeight="600"
+                style={{ pointerEvents: "none" }}
+              >
+                {q.label}
+              </text>
+              <rect x={region.x} y={region.y} width={region.w} height={region.h} fill="transparent" />
+            </g>
+          );
+        })}
+
+        <line x1={padL} y1={midY} x2={padL + plotW} y2={midY} stroke={T.border} strokeWidth="1" strokeDasharray="4 4" />
+        <line x1={midX} y1={padT} x2={midX} y2={padT + plotH} stroke={T.border} strokeWidth="1" strokeDasharray="4 4" />
+
+        <line x1={padL} y1={padT + plotH} x2={padL + plotW} y2={padT + plotH} stroke={T.textMuted} strokeWidth="1.5" />
+        <line x1={padL} y1={padT} x2={padL} y2={padT + plotH} stroke={T.textMuted} strokeWidth="1.5" />
+
+        {[0, 25, 50, 75, 100].map((tick) => (
+          <g key={`x-${tick}`}>
+            <line
+              x1={toX(tick)} y1={padT + plotH} x2={toX(tick)} y2={padT + plotH + 5}
+              stroke={T.textMuted} strokeWidth="1"
+            />
+            <text
+              x={toX(tick)} y={padT + plotH + 18}
+              textAnchor="middle" fontSize="10" fill={T.textMuted} fontFamily={T.font}
+            >
+              {tick}%
+            </text>
+          </g>
+        ))}
+
+        {[0, 25, 50, 75, 100].map((tick) => (
+          <g key={`y-${tick}`}>
+            <line
+              x1={padL - 5} y1={toY(tick)} x2={padL} y2={toY(tick)}
+              stroke={T.textMuted} strokeWidth="1"
+            />
+            <text
+              x={padL - 8} y={toY(tick) + 4}
+              textAnchor="end" fontSize="10" fill={T.textMuted} fontFamily={T.font}
+            >
+              {tick}%
+            </text>
+          </g>
+        ))}
+
+        <text
+          x={padL + plotW / 2} y={H - 6}
+          textAnchor="middle" fontSize="12" fontWeight="600" fill={T.textHigh} fontFamily={T.font}
+        >
+          Overall Learning Proficiency →
+        </text>
+        <text
+          x={14} y={padT + plotH / 2}
+          textAnchor="middle" fontSize="12" fontWeight="600" fill={T.textHigh} fontFamily={T.font}
+          transform={`rotate(-90, 14, ${padT + plotH / 2})`}
+        >
+          Activity Completion →
+        </text>
+
+        {roster.map((student) => {
+          const q = quadrantMeta[student.scatterQuadrant];
+          const jx = scatterJitter(student.id, 0) * 10;
+          const jy = scatterJitter(student.id, 1) * 10;
+          const cx = toX(student.proficiencyScore) + jx;
+          const cy = toY(student.completionPct) + jy;
+          const dim = selectedQuadrant && selectedQuadrant !== student.scatterQuadrant;
+          return (
+            <g
+              key={student.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectQuadrant(
+                  selectedQuadrant === student.scatterQuadrant ? null : student.scatterQuadrant,
+                );
+              }}
+              style={{ cursor: "pointer", opacity: dim ? 0.25 : 1 }}
+            >
+              <title>
+                {`${student.name}: ${student.proficiencyScore}% proficiency · ${student.completionPct}% activity completion`}
+              </title>
+              <circle cx={cx} cy={cy} r={DOT_R + 6} fill="transparent" />
+              <circle cx={cx} cy={cy} r={DOT_R} fill={q.dot} stroke="#fff" strokeWidth="1.5" />
+            </g>
+          );
+        })}
+      </svg>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        {[...SCATTER_QUADRANTS].sort((a, b) => a.priority - b.priority).map((q) => {
+          const selected = selectedQuadrant === q.id;
+          const count = counts[q.id];
+          const pct = Math.round((count / total) * 100);
+          return (
+            <button
+              key={q.id}
+              onClick={() => onSelectQuadrant(selected ? null : q.id)}
+              title={q.desc}
+              style={{
+                fontFamily: T.font, cursor: "pointer", textAlign: "left",
+                background: selected ? T.tableSelect : "#fff",
+                border: selected ? `1.5px solid ${T.action}` : `1px solid ${T.border}`,
+                borderRadius: 8, padding: selected ? "12px 14px" : "13px 15px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 5, background: q.dot, flexShrink: 0 }} />
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: T.textHigh, lineHeight: 1.3 }}>
+                  {q.label}
+                </span>
+              </div>
+              <div style={{ fontSize: 21, fontWeight: 700, color: T.textHigh }}>{count}</div>
+              <div style={{ fontSize: 11.5, color: T.textMuted, marginTop: 2, lineHeight: 1.35 }}>
+                {pct}% of class · {q.hint}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Trend: students with low proficiency over time
 // ---------------------------------------------------------------------------
@@ -1144,14 +1496,19 @@ function isHighActivityLowProficiency(student, totalActivities) {
     && student.attempted / totalActivities >= 0.6;
 }
 
-function StudentsPanel({ objective, bucketId, students, onClose }) {
-  const bucket = BUCKETS.find((b) => b.id === bucketId);
+function isScatterPriorityStudent(student) {
+  return student.scatterQuadrant === "tl";
+}
+
+function StudentsPanel({ objective, bucketId, students, onClose, scatterView = false }) {
+  const scatterQ = scatterView ? SCATTER_QUADRANTS.find((q) => q.id === bucketId) : null;
+  const bucket = !scatterView ? BUCKETS.find((b) => b.id === bucketId) : null;
   const [selected, setSelected] = useState(() => new Set(students.map((s) => s.id)));
   const allChecked = students.length > 0 && students.every((s) => selected.has(s.id));
   const selectedCount = students.filter((s) => selected.has(s.id)).length;
-  const highActivityStudents = students.filter(
-    (s) => isHighActivityLowProficiency(s, objective.activitiesCount),
-  );
+  const highActivityStudents = scatterView
+    ? students.filter((s) => isScatterPriorityStudent(s))
+    : students.filter((s) => isHighActivityLowProficiency(s, objective.activitiesCount));
 
   const onToggle = (id) => {
     setSelected((prev) => {
@@ -1178,7 +1535,10 @@ function StudentsPanel({ objective, bucketId, students, onClose }) {
   };
   const td = { padding: "10px", fontSize: 16, color: T.textLow, verticalAlign: "middle" };
 
-  const bucketChip = CHIP_FIGMA[BUCKET_CHIP_KEY[bucketId]];
+  const bucketChip = scatterView ? null : CHIP_FIGMA[BUCKET_CHIP_KEY[bucketId]];
+  const panelTitle = scatterQ?.panel ?? bucket?.panel;
+  const badgeColor = scatterQ ? scatterQ.badgeColor : bucketChip.color;
+  const badgeBg = scatterQ ? scatterQ.badgeBg : bucketChip.bg;
 
   return (
     <div style={{ border: `1px solid ${T.border}`, borderRadius: 9, background: "#fff", overflow: "hidden" }}>
@@ -1187,12 +1547,12 @@ function StudentsPanel({ objective, bucketId, students, onClose }) {
         borderBottom: `1px solid ${T.border}`, minHeight: 62,
       }}>
         <span style={{ fontSize: 16, fontWeight: 600, color: "#373a44" }}>
-          {bucket.panel}
+          {panelTitle}
         </span>
         <span style={{
           fontSize: 12, fontWeight: 600,
-          color: bucketChip.color,
-          background: bucketChip.bg,
+          color: badgeColor,
+          background: badgeBg,
           borderRadius: 999, padding: "4px 8px", lineHeight: 1,
         }}>
           {students.length}
@@ -1227,7 +1587,7 @@ function StudentsPanel({ objective, bucketId, students, onClose }) {
         </div>
       </div>
 
-      {bucketId === "low" && highActivityStudents.length > 0 && (
+      {(scatterView ? bucketId === "tl" : bucketId === "low") && highActivityStudents.length > 0 && (
         <div style={{
           padding: "10px 14px", borderBottom: `1px solid ${T.border}`,
           background: T.dangerFill, borderLeft: `3px solid ${T.danger}`,
@@ -1236,8 +1596,15 @@ function StudentsPanel({ objective, bucketId, students, onClose }) {
           <strong style={{ color: T.danger }}>
             {highActivityStudents.length} student{highActivityStudents.length === 1 ? "" : "s"}
           </strong>
-          {" "}completed most related activities but still show low proficiency — this suggests a{" "}
-          <strong>conceptual gap</strong>, not a participation issue.
+          {" "}
+          {scatterView
+            ? "show high activity completion but low proficiency — highest instructional priority for this objective."
+            : "completed most related activities but still show low proficiency — this suggests a "}
+          {!scatterView && (
+            <>
+              <strong>conceptual gap</strong>, not a participation issue.
+            </>
+          )}
         </div>
       )}
 
@@ -1256,7 +1623,9 @@ function StudentsPanel({ objective, bucketId, students, onClose }) {
           </thead>
           <tbody>
             {students.map((s, i) => {
-              const highActivity = isHighActivityLowProficiency(s, objective.activitiesCount);
+              const highActivity = scatterView
+                ? isScatterPriorityStudent(s)
+                : isHighActivityLowProficiency(s, objective.activitiesCount);
               const attemptPct = Math.round((s.attempted / objective.activitiesCount) * 100);
               return (
                 <tr
@@ -1369,6 +1738,7 @@ function getAIRecommendation(objective, roster) {
           review: weakest && activityNum ? {
             label: `Review Activity ${activityNum}`,
             desc: `Open ${weakest.name} (${weakest.correctness}% class correctness, ${weakest.completion}% completion) and inspect first-attempt responses on equation rearrangement.`,
+            questionId: questionIdForActivityReview(objective, activityNum),
           } : null,
           viewStudents: lowCount > 0 ? {
             label: `View ${lowCount} Students`,
@@ -1456,6 +1826,31 @@ function getAIRecommendation(objective, roster) {
         },
       };
 
+    case "lo-scatter-demo": {
+      const tlCount = roster.filter((s) => s.scatterQuadrant === "tl").length;
+      const blCount = roster.filter((s) => s.scatterQuadrant === "bl").length;
+      return {
+        text: `The student distribution shows ${tlCount} students in the highest-priority quadrant — high activity completion with low proficiency on reaction order and rate constants. ${blCount} students show both low participation and low proficiency and may need outreach. Consider a brief small-group review for the top-left group, focusing on ${weakest?.name ?? "integrated rate laws and order determination"}.`,
+        steps: {
+          review: weakest && activityNum ? {
+            label: `Review Activity ${activityNum}`,
+            desc: `Open ${weakest.name} (${weakest.correctness}% class correctness) — weakest linked activity for this kinetics objective.`,
+            questionId: questionIdForActivityReview(objective, activityNum),
+          } : null,
+          viewStudents: tlCount > 0 ? {
+            label: `View ${tlCount} Students`,
+            desc: `Open the "working hard, struggling" quadrant — students completing activities but not yet demonstrating proficiency.`,
+            bucket: "tl",
+          } : null,
+          email: tlCount > 0 ? {
+            label: "Email Students",
+            desc: `Consider inviting the ${tlCount} highest-priority students to retry practice activities and review feedback before the assessment.`,
+            bucket: "tl",
+          } : null,
+        },
+      };
+    }
+
     default:
       return {
         text: `Evidence suggests ${lowCount} of ${TOTAL_STUDENTS} students show Low proficiency on this objective. Consider reviewing linked activities and student attempt history before the next assessment.`,
@@ -1463,6 +1858,7 @@ function getAIRecommendation(objective, roster) {
           review: weakest && activityNum ? {
             label: `Review Activity ${activityNum}`,
             desc: `Inspect ${weakest.name}, the lowest-performing linked activity (${weakest.correctness}% correctness).`,
+            questionId: questionIdForActivityReview(objective, activityNum),
           } : null,
           viewStudents: lowCount > 0 ? {
             label: `View ${lowCount} Students`,
@@ -1487,7 +1883,7 @@ function AIRecommendation({ objective, roster, onSelectBucket, onReviewActivity 
     stepConfig.review && {
       iconSrc: ICONS.practice,
       ...stepConfig.review,
-      onClick: onReviewActivity,
+      onClick: () => onReviewActivity(stepConfig.review.questionId),
     },
     stepConfig.viewStudents && {
       iconSrc: ICONS.users,
@@ -1682,12 +2078,18 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
   const roster = ROSTERS[objective.id];
 
   const bucketStudents = useMemo(
-    () => (selectedBucket ? roster.filter((s) => s.bucket === selectedBucket) : []),
-    [roster, selectedBucket],
+    () => {
+      if (!selectedBucket) return [];
+      if (objective.scatterView) {
+        return roster.filter((s) => s.scatterQuadrant === selectedBucket);
+      }
+      return roster.filter((s) => s.bucket === selectedBucket);
+    },
+    [roster, selectedBucket, objective.scatterView],
   );
 
-  const openActivities = () => {
-    onViewActivities(objective.id);
+  const openActivities = (expandQuestionId = null) => {
+    onViewActivities(objective.id, expandQuestionId);
   };
 
   const rowBg = rowIndex % 2 === 0 ? T.rowStripe : T.tableRow2;
@@ -1748,20 +2150,35 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
         <tr>
           <td colSpan={5} style={{ padding: 0, borderTop: `1px solid ${T.border}`, background: T.tableHover }}>
             <div style={{
-              padding: "24px 24px 24px 66px",
+              padding: "24px clamp(12px, 4vw, 24px) 24px clamp(16px, 6vw, 66px)",
               display: "flex", flexDirection: "column", gap: 24,
+              maxWidth: "100%", minWidth: 0, boxSizing: "border-box",
             }}>
               {/* header + how-estimated disclosure */}
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 16, fontWeight: 700, color: T.textHigh }}>
-                    Estimated Learning: {TOTAL_STUDENTS} Students
+                    {objective.scatterView ? "Student Distribution" : "Estimated Learning"}: {TOTAL_STUDENTS} Students
                   </span>
                   <ConfidenceBadge level={objective.confidence} />
                 </div>
+                {objective.scatterView && (
+                  <div style={{ fontSize: 13, color: T.textMuted, marginTop: 6, lineHeight: 1.5 }}>
+                    Plot proficiency against activity completion to see who is thriving, struggling, or disengaged.
+                    Click a quadrant or student dot to open the student list.
+                  </div>
+                )}
               </div>
 
-              <ProficiencyBuckets roster={roster} selectedBucket={selectedBucket} onSelectBucket={onSelectBucket} />
+              {objective.scatterView ? (
+                <StudentDistributionPlot
+                  roster={roster}
+                  selectedQuadrant={selectedBucket}
+                  onSelectQuadrant={onSelectBucket}
+                />
+              ) : (
+                <ProficiencyBuckets roster={roster} selectedBucket={selectedBucket} onSelectBucket={onSelectBucket} />
+              )}
 
               {selectedBucket && (
                 <StudentsPanel
@@ -1769,6 +2186,7 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
                   objective={objective}
                   bucketId={selectedBucket}
                   students={bucketStudents}
+                  scatterView={!!objective.scatterView}
                   onClose={() => onSelectBucket(null)}
                 />
               )}
@@ -1777,7 +2195,7 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
                 objective={objective}
                 roster={roster}
                 onSelectBucket={onSelectBucket}
-                onReviewActivity={openActivities}
+                onReviewActivity={(questionId) => openActivities(questionId)}
               />
 
               <SubObjectivesTable
@@ -2106,12 +2524,14 @@ function ActivityQuestionRow({ item, index, open, onToggle }) {
   );
 }
 
-function ObjectiveActivitiesView({ objective, onBack }) {
+function ObjectiveActivitiesView({ objective, onBack, initialExpandedQuestionId = null }) {
   const items = getActivityItems(objective);
   const [search, setSearch] = useState("");
   const [scoreFilter, setScoreFilter] = useState("all");
   const [attemptsFilter, setAttemptsFilter] = useState("all");
-  const [expanded, setExpanded] = useState(() => new Set());
+  const [expanded, setExpanded] = useState(
+    () => (initialExpandedQuestionId ? new Set([initialExpandedQuestionId]) : new Set()),
+  );
 
   const toggle = (id) => {
     setExpanded((prev) => {
@@ -2487,8 +2907,14 @@ function LearningObjectivesCard({ onViewActivities }) {
 // ---------------------------------------------------------------------------
 
 export default function App() {
-  const [activityObjectiveId, setActivityObjectiveId] = useState(null);
-  const activityObjective = OBJECTIVES.find((o) => o.id === activityObjectiveId);
+  const [activityView, setActivityView] = useState(null);
+  const activityObjective = activityView
+    ? OBJECTIVES.find((o) => o.id === activityView.objectiveId)
+    : null;
+
+  const openActivityView = (objectiveId, expandQuestionId = null) => {
+    setActivityView({ objectiveId, expandQuestionId });
+  };
 
   return (
     <div style={{ fontFamily: T.font, background: T.bgPrimary, minHeight: "100vh", color: T.textHigh }}>
@@ -2496,13 +2922,15 @@ export default function App() {
       <InsightsTabs />
       {activityObjective ? (
         <ObjectiveActivitiesView
+          key={`${activityView.objectiveId}-${activityView.expandQuestionId ?? "none"}`}
           objective={activityObjective}
-          onBack={() => setActivityObjectiveId(null)}
+          initialExpandedQuestionId={activityView.expandQuestionId}
+          onBack={() => setActivityView(null)}
         />
       ) : (
         <>
           <ModulePager />
-          <LearningObjectivesCard onViewActivities={setActivityObjectiveId} />
+          <LearningObjectivesCard onViewActivities={openActivityView} />
         </>
       )}
     </div>
