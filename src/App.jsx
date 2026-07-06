@@ -34,9 +34,9 @@ const T = {
 // Figma dashboard table uses Low / Medium / High labels on proficiency pills.
 const CHIP_FIGMA = {
   "Needs Attention": { label: "Low", bg: T.dangerFill, color: "#b60202", warn: true, chevron: false },
-  "Watch": { label: "Medium", bg: "#ffecde", color: "#91450e", warn: false, chevron: true },
+  "Watch": { label: "Medium", bg: "#ffecde", color: "#91450e", warn: false, chevron: false },
   "On Track": { label: "High", bg: "#e7fcf3", color: "#175a3d", warn: false, chevron: false },
-  "Not enough data": { label: "Not enough data", bg: "#ced1d9", color: "#000", warn: false, chevron: true },
+  "Not enough data": { label: "Not enough data", bg: "#ced1d9", color: "#000", warn: false, chevron: false },
 };
 
 const DIST_BAR_COLORS = ["#c2c2c2", "#ce2c31", "#bf5b13", "#218358"];
