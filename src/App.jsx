@@ -571,7 +571,11 @@ const SCATTER_QUADRANTS = [
     hint: "Low proficiency · High activity completion",
     panel: "Students Working Hard but Struggling",
     desc: "Students are actively completing the associated learning activities but are still unlikely to demonstrate this learning objective. Review common misconceptions, instructional materials, or provide additional support.",
-    bg: "rgba(0, 0, 0, 0.02)",
+    shortDesc: "Doing the work but still low proficiency.",
+    panelDesc: "Students are actively completing the associated activities but are still unlikely to demonstrate this objective.",
+    actionSuggestion: "Review common misconceptions in class, or assign a short guided practice session focused on the weakest linked activities.",
+    bg: "#fde8ea",
+    chartBorder: "#ce2c31",
     dot: "#ce2c31",
     pieColor: "#ce2c31",
     badgeBg: "#feebed",
@@ -584,7 +588,11 @@ const SCATTER_QUADRANTS = [
     hint: "Low proficiency · Low activity completion",
     panel: "Students with Low Participation",
     desc: "Students have completed few associated learning activities, making it difficult to determine whether low proficiency reflects a learning gap or limited engagement. Encourage students to complete more practice before intervening.",
-    bg: "rgba(0, 0, 0, 0.04)",
+    shortDesc: "Not enough activity to trust the estimate.",
+    panelDesc: "Students have completed few linked activities, so proficiency estimates may not reflect their true understanding yet.",
+    actionSuggestion: "Send a friendly reminder to complete linked activities so proficiency estimates reflect their current understanding.",
+    bg: "#f3f4f8",
+    chartBorder: "#9b9ea8",
     dot: "#bf5b13",
     pieColor: "#bf5b13",
     badgeBg: "#ffecde",
@@ -597,7 +605,11 @@ const SCATTER_QUADRANTS = [
     hint: "High proficiency · High activity completion",
     panel: "Students Thriving",
     desc: "Students are completing the associated learning activities and are likely to demonstrate this learning objective. Continue reinforcing their progress.",
-    bg: "rgba(0, 0, 0, 0.02)",
+    shortDesc: "High proficiency and high activity.",
+    panelDesc: "Students are completing linked activities and are likely to demonstrate this objective.",
+    actionSuggestion: "Acknowledge progress and continue reinforcing — these students are on track for this objective.",
+    bg: "#e7fcf3",
+    chartBorder: "#218358",
     dot: "#218358",
     pieColor: "#218358",
     badgeBg: "#e7fcf3",
@@ -610,7 +622,11 @@ const SCATTER_QUADRANTS = [
     hint: "High proficiency · Low activity completion",
     panel: "Students Succeeding with Less Practice",
     desc: "Students are likely to demonstrate this learning objective despite completing relatively few associated learning activities. Monitor for consistency as they continue through the course.",
-    bg: "rgba(0, 0, 0, 0.04)",
+    shortDesc: "High proficiency with fewer attempts.",
+    panelDesc: "Students show strong proficiency despite completing relatively few linked activities so far.",
+    actionSuggestion: "Monitor for consistency — no immediate intervention needed unless activity or proficiency drops before the assessment.",
+    bg: "#fff4e6",
+    chartBorder: "#bf5b13",
     dot: "#1d7a46",
     pieColor: "#1d7a46",
     badgeBg: "#e6f6ec",
@@ -1180,22 +1196,47 @@ const SCATTER_CHART_WIDTH = 640;
 const SCATTER_CHART_HEIGHT = 636;
 
 function ScatterPlotLegend() {
+  const labels = {
+    none: "Not enough data",
+    low: "Low proficiency",
+    medium: "Medium proficiency",
+    high: "High proficiency",
+  };
   return (
     <div style={{
-      display: "flex", flexWrap: "wrap", gap: "8px 16px",
-      fontSize: 12, color: T.textMuted,
+      display: "flex", flexWrap: "wrap", gap: "8px 20px",
+      fontSize: 13, color: T.textMuted,
     }}>
       {BUCKETS.map((b) => (
-        <span key={b.id} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <span key={b.id} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
           <span style={{ width: 10, height: 10, borderRadius: 5, background: b.dot, flexShrink: 0 }} />
-          {BUCKET_CARD_LABELS[b.id]}
+          {labels[b.id]}
         </span>
       ))}
     </div>
   );
 }
 
-function StudentDistributionPlot({ roster, selectedQuadrant, onSelectQuadrant, chartOnly = false }) {
+function ScatterChartTip() {
+  return (
+    <div style={{
+      marginTop: 12, padding: "11px 14px", borderRadius: 8,
+      background: "#eef6ff", border: "1px solid #c8ddf5",
+      fontSize: 13, color: T.textLow, lineHeight: 1.5,
+      display: "flex", gap: 10, alignItems: "flex-start",
+    }}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden style={{ flexShrink: 0, marginTop: 1 }}>
+        <path d="M9 18h6M10 22h4M12 2a7 7 0 0 1 4 12.9V17H8v-2.1A7 7 0 0 1 12 2z" stroke="#006cd9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <span>
+        <strong style={{ color: T.textHigh }}>Tip:</strong>{" "}
+        Focus on the top-left group first. These students are putting in effort but still need support.
+      </span>
+    </div>
+  );
+}
+
+function StudentDistributionPlot({ roster, selectedQuadrant, onSelectQuadrant, inline = false }) {
   const W = SCATTER_CHART_WIDTH;
   const padL = 52;
   const padR = 24;
@@ -1207,8 +1248,7 @@ function StudentDistributionPlot({ roster, selectedQuadrant, onSelectQuadrant, c
   const H = plotBottom + padB;
   const midX = padL + plotW * (SCATTER_THRESHOLD / 100);
   const midY = padT + plotH * (1 - SCATTER_THRESHOLD / 100);
-  const DOT_R = 4.5;
-  const GRID_THIRDS = [100 / 3, (100 * 2) / 3];
+  const DOT_R = 5;
 
   const counts = Object.fromEntries(
     SCATTER_QUADRANTS.map((q) => [q.id, roster.filter((s) => s.scatterQuadrant === q.id).length]),
@@ -1258,22 +1298,28 @@ function StudentDistributionPlot({ roster, selectedQuadrant, onSelectQuadrant, c
     const q = quadrantMeta[region.id];
     const count = counts[region.id];
     const pos = quadrantLabelPos[region.id];
-    const textX = pos.anchor === "end" ? region.x + region.w - 10 : region.x + 10;
-    const labelY = pos.corner === "top" ? region.y + 16 : region.y + region.h - 28;
-    const countY = pos.corner === "top" ? region.y + 34 : region.y + region.h - 10;
+    const textX = pos.anchor === "end" ? region.x + region.w - 12 : region.x + 12;
+    const isTop = pos.corner === "top";
+    const labelY = isTop ? region.y + 18 : region.y + region.h - 52;
+    const countY = isTop ? region.y + 38 : region.y + region.h - 32;
+    const descY = isTop ? region.y + 56 : region.y + region.h - 14;
     return (
       <g key={`label-${region.id}`} style={{ pointerEvents: "none" }}>
         <text
           x={textX} y={labelY} textAnchor={pos.anchor}
-          fontSize="11" fontWeight="600" fill={T.textMuted} fontFamily={T.font}
+          fontSize="12" fontWeight="600" fill={T.textMuted} fontFamily={T.font}
         >
           {q.label}
         </text>
+        <text x={textX} y={countY} textAnchor={pos.anchor} fontFamily={T.font}>
+          <tspan fontSize="20" fontWeight="700" fill={T.textHigh}>{count}</tspan>
+          <tspan fontSize="13" fontWeight="600" fill={T.textMuted}> students</tspan>
+        </text>
         <text
-          x={textX} y={countY} textAnchor={pos.anchor}
-          fontSize="18" fontWeight="700" fill={T.textHigh} fontFamily={T.font}
+          x={textX} y={descY} textAnchor={pos.anchor}
+          fontSize="11" fill={T.textMuted} fontFamily={T.font}
         >
-          {count}
+          {q.shortDesc}
         </text>
       </g>
     );
@@ -1305,23 +1351,27 @@ function StudentDistributionPlot({ roster, selectedQuadrant, onSelectQuadrant, c
   });
 
   return (
-    <div style={chartOnly ? { width: W, maxWidth: "100%", flexShrink: 0 } : undefined}>
-      {!chartOnly && (
+    <div style={inline ? { flexShrink: 0, width: W, maxWidth: "100%" } : undefined}>
+      {!inline && (
         <>
           <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 10, lineHeight: 1.5 }}>
-            Dot color shows estimated proficiency — click a quadrant to view students below the chart.
+            Each dot represents a student. Dot color shows estimated proficiency. Click a group to see the students in that bucket.
           </div>
           <ScatterPlotLegend />
         </>
       )}
 
-      <div
-        role="group"
-        aria-label="Student distribution quadrants"
-        style={{
-          position: "relative", width: W, maxWidth: "100%", aspectRatio: `${W} / ${H}`, flexShrink: 0,
-        }}
-      >
+      <div style={{
+        border: `1px solid ${T.border}`, borderRadius: 12, background: "#fff",
+        padding: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      }}>
+        <div
+          role="group"
+          aria-label="Student distribution quadrants"
+          style={{
+            position: "relative", width: "100%", aspectRatio: `${W} / ${H}`, flexShrink: 0,
+          }}
+        >
         <svg
           viewBox={`0 0 ${W} ${H}`}
           aria-hidden="true"
@@ -1341,28 +1391,15 @@ function StudentDistributionPlot({ roster, selectedQuadrant, onSelectQuadrant, c
                 key={`bg-${region.id}`}
                 x={region.x} y={region.y} width={region.w} height={region.h}
                 fill={q.bg}
-                stroke={selected ? T.action : "none"}
-                strokeWidth={selected ? 2 : 0}
-                style={{ opacity: dim ? 0.35 : 1, transition: "opacity 0.15s" }}
+                stroke={selected ? q.chartBorder : "none"}
+                strokeWidth={selected ? 2.5 : 0}
+                style={{ opacity: dim ? 0.4 : 1, transition: "opacity 0.15s" }}
               />
             );
           })}
 
-          {GRID_THIRDS.map((pct) => (
-            <g key={`grid-${pct}`}>
-              <line
-                x1={toX(pct)} y1={padT} x2={toX(pct)} y2={plotBottom}
-                stroke={T.rowStripe} strokeWidth="1"
-              />
-              <line
-                x1={padL} y1={toY(pct)} x2={padL + plotW} y2={toY(pct)}
-                stroke={T.rowStripe} strokeWidth="1"
-              />
-            </g>
-          ))}
-
-          <line x1={padL} y1={midY} x2={padL + plotW} y2={midY} stroke={T.textHigh} strokeWidth="2.5" />
-          <line x1={midX} y1={padT} x2={midX} y2={plotBottom} stroke={T.textHigh} strokeWidth="2.5" />
+          <line x1={padL} y1={midY} x2={padL + plotW} y2={midY} stroke={T.border} strokeWidth="1.5" />
+          <line x1={midX} y1={padT} x2={midX} y2={plotBottom} stroke={T.border} strokeWidth="1.5" />
 
           {renderQuadrantLabels()}
 
@@ -1401,16 +1438,16 @@ function StudentDistributionPlot({ roster, selectedQuadrant, onSelectQuadrant, c
 
           <text
             x={padL + plotW / 2} y={H - 8}
-            textAnchor="middle" fontSize="12" fontWeight="600" fill={T.textHigh} fontFamily={T.font}
+            textAnchor="middle" fontSize="12" fontWeight="600" fill={T.textMuted} fontFamily={T.font}
           >
-            Overall Learning Proficiency →
+            Overall learning proficiency →
           </text>
           <text
-            x={14} y={padT + plotH / 2}
-            textAnchor="middle" fontSize="12" fontWeight="600" fill={T.textHigh} fontFamily={T.font}
-            transform={`rotate(-90, 14, ${padT + plotH / 2})`}
+            x={16} y={padT + plotH / 2}
+            textAnchor="middle" fontSize="12" fontWeight="600" fill={T.textMuted} fontFamily={T.font}
+            transform={`rotate(-90, 16, ${padT + plotH / 2})`}
           >
-            Activity Completion →
+            Activity completion →
           </text>
         </svg>
 
@@ -1445,6 +1482,8 @@ function StudentDistributionPlot({ roster, selectedQuadrant, onSelectQuadrant, c
         >
           {renderDots()}
         </svg>
+        </div>
+        {inline && <ScatterChartTip />}
       </div>
     </div>
   );
@@ -1677,12 +1716,21 @@ function studentProfileHref(student) {
   return `#/students/${slug}`;
 }
 
-function StudentAvatar({ name }) {
+function studentDisplayName(name) {
+  const parts = name.split(", ");
+  return parts.length === 2 ? `${parts[1]} ${parts[0]}` : name;
+}
+
+function StudentAvatar({ name, variant = "default" }) {
   const initials = name.split(", ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+  const scatter = variant === "scatter";
   return (
     <span style={{
-      width: 24, height: 24, borderRadius: "50%", border: `1px solid ${T.border}`,
-      background: T.rowStripe, color: T.textMuted, fontSize: 9, fontWeight: 700,
+      width: scatter ? 32 : 24, height: scatter ? 32 : 24, borderRadius: "50%",
+      border: scatter ? "none" : `1px solid ${T.border}`,
+      background: scatter ? "#e8f2fc" : T.rowStripe,
+      color: scatter ? "#006cd9" : T.textMuted,
+      fontSize: scatter ? 11 : 9, fontWeight: 700,
       display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
     }}>
       {initials}
@@ -1694,6 +1742,159 @@ function StudentAvatar({ name }) {
 function isHighActivityLowProficiency(student, totalActivities) {
   return student.bucket === "low" && totalActivities > 0
     && student.attempted / totalActivities >= 0.6;
+}
+
+const PROFICIENCY_PILL = {
+  none: { label: "No data", bg: "#f3f4f8", color: "#757682", dot: "#9b9ea8" },
+  low: { label: "Low", bg: "#feebed", color: "#b60202", dot: "#ce2c31" },
+  medium: { label: "Med", bg: "#fff4e6", color: "#91450e", dot: "#d97706" },
+  high: { label: "High", bg: "#e7fcf3", color: "#175a3d", dot: "#1d7a46" },
+};
+const SCATTER_PANEL_PREVIEW = 5;
+
+function ScatterBucketPanel({ quadrant, students, activitiesCount, onClose }) {
+  const pct = Math.round((students.length / TOTAL_STUDENTS) * 100);
+  const preview = students.slice(0, SCATTER_PANEL_PREVIEW);
+
+  return (
+    <div style={{
+      border: `2px solid ${quadrant.chartBorder}`, borderRadius: 12, background: "#fff",
+      minWidth: 0, width: "100%", maxWidth: 400,
+      display: "flex", flexDirection: "column",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    }}>
+      <div style={{ padding: "16px 18px 14px" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+          <span style={{
+            width: 36, height: 36, borderRadius: 8, background: quadrant.badgeBg,
+            display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}>
+            <AppIcon src={ICONS.users} size={20} alt="" />
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: T.textHigh, lineHeight: 1.3 }}>
+              {quadrant.label}
+            </div>
+            <div style={{ fontSize: 13, color: T.textMuted, marginTop: 4 }}>
+              {students.length} of {TOTAL_STUDENTS} students ({pct}%)
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            title="Close"
+            aria-label="Close"
+            style={{
+              fontFamily: T.font, cursor: "pointer", background: "none", border: "none",
+              color: T.textMuted, fontSize: 20, padding: 0, lineHeight: 1, flexShrink: 0,
+            }}
+          >
+            ×
+          </button>
+        </div>
+        <p style={{ margin: "12px 0 0", fontSize: 13, color: T.textLow, lineHeight: 1.5 }}>
+          {quadrant.panelDesc}
+        </p>
+      </div>
+
+      <ul style={{
+        listStyle: "none", margin: 0, padding: "0 14px",
+        display: "flex", flexDirection: "column", gap: 2,
+      }}>
+        {preview.map((s) => {
+          const pill = PROFICIENCY_PILL[s.bucket] ?? PROFICIENCY_PILL.none;
+          return (
+            <li key={s.id}>
+              <a
+                href={studentProfileHref(s)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "10px 8px", borderRadius: 8,
+                  textDecoration: "none", color: "inherit",
+                }}
+              >
+                <StudentAvatar name={s.name} variant="scatter" />
+                <span style={{
+                  flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600,
+                  color: T.textHigh, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>
+                  {studentDisplayName(s.name)}
+                </span>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, lineHeight: 1,
+                  padding: "4px 8px", borderRadius: 999,
+                  background: pill.bg, color: pill.color,
+                  display: "inline-flex", alignItems: "center", gap: 5, flexShrink: 0,
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: 3, background: pill.dot }} />
+                  {pill.label}
+                </span>
+                <span style={{
+                  fontSize: 12, color: T.textMuted, flexShrink: 0,
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <rect x="4" y="3" width="16" height="18" rx="2" stroke="#757682" strokeWidth="1.6" />
+                    <path d="M8 8h8M8 12h8M8 16h5" stroke="#757682" strokeWidth="1.6" strokeLinecap="round" />
+                  </svg>
+                  {s.attempted} of {activitiesCount}
+                </span>
+                <span style={{ color: T.textMuted, fontSize: 16, flexShrink: 0, lineHeight: 1 }} aria-hidden>›</span>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+
+      {students.length > SCATTER_PANEL_PREVIEW && (
+        <div style={{ padding: "4px 14px 12px" }}>
+          <a
+            href="#"
+            onClick={(e) => e.preventDefault()}
+            style={{ fontSize: 13, fontWeight: 600, color: T.action, textDecoration: "none" }}
+          >
+            View all {students.length} students ›
+          </a>
+        </div>
+      )}
+
+      {quadrant.actionSuggestion && (
+        <div style={{
+          margin: "4px 14px 16px", padding: "14px 16px", borderRadius: 10,
+          background: quadrant.badgeBg, border: `1px solid ${quadrant.chartBorder}33`,
+        }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden style={{ flexShrink: 0, marginTop: 1 }}>
+              <circle cx="12" cy="12" r="9" stroke={quadrant.badgeColor} strokeWidth="1.8" />
+              <circle cx="12" cy="12" r="5" stroke={quadrant.badgeColor} strokeWidth="1.8" />
+              <circle cx="12" cy="12" r="1.5" fill={quadrant.badgeColor} />
+            </svg>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: T.textHigh, marginBottom: 4 }}>
+                Suggested action
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: T.textLow, lineHeight: 1.5 }}>
+                {quadrant.actionSuggestion}
+              </p>
+              <a
+                href="#"
+                onClick={(e) => e.preventDefault()}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  marginTop: 8, fontSize: 13, fontWeight: 600, color: T.action, textDecoration: "none",
+                }}
+              >
+                View recommended resources
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path d="M14 3h7v7M10 14L21 3M21 14v7H3V3h7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function StudentsPanel({ objective, bucketId, students, onClose, scatterView = false }) {
@@ -1737,6 +1938,122 @@ function StudentsPanel({ objective, bucketId, students, onClose, scatterView = f
   const badgeBg = scatterQ ? scatterQ.badgeBg : bucketChip.bg;
 
   const showPriorityBanner = !scatterView && bucketId === "low" && highActivityStudents.length > 0;
+
+  if (scatterView && scatterQ) {
+    const compactTh = {
+      textAlign: "left", fontSize: 13, fontWeight: 600, color: T.textMuted,
+      padding: "8px 12px", background: "#fff", borderBottom: `1px solid ${T.border}`,
+      verticalAlign: "middle",
+    };
+    const compactTd = { padding: "10px 12px", fontSize: 14, color: T.textLow, verticalAlign: "middle" };
+
+    return (
+      <div style={{
+        border: `1px solid ${T.border}`, borderRadius: 9, background: "#fff",
+        overflow: "hidden", minWidth: 0, display: "flex", flexDirection: "column",
+        borderLeft: `3px solid ${scatterQ.badgeColor}`,
+      }}>
+        <div style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}` }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: T.textHigh }}>{scatterQ.label}</div>
+              <div style={{ fontSize: 13, color: T.textMuted, marginTop: 4 }}>
+                {students.length} of {TOTAL_STUDENTS} students
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              title="Close"
+              style={{
+                fontFamily: T.font, cursor: "pointer", background: "none", border: "none",
+                color: T.textMuted, fontSize: 18, padding: 4, lineHeight: 1, flexShrink: 0,
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <p style={{ margin: "10px 0 0", fontSize: 13, color: T.textMuted, lineHeight: 1.55 }}>
+            {scatterQ.desc}
+          </p>
+        </div>
+
+        <div style={{ flex: 1, minHeight: 0, maxHeight: 420, overflowY: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={compactTh}>Student</th>
+                <th style={compactTh}>Proficiency</th>
+                <th style={compactTh}>Activities</th>
+                <th style={compactTh}>Last activity</th>
+                <th style={{ ...compactTh, width: 88 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {students.map((s, i) => {
+                const profBucket = BUCKETS.find((b) => b.id === s.bucket);
+                return (
+                  <tr
+                    key={s.id}
+                    style={{
+                      background: i % 2 === 0 ? T.tableRow2 : "#fff",
+                      borderTop: `1px solid ${T.border}`,
+                    }}
+                  >
+                    <td style={compactTd}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <StudentAvatar name={s.name} />
+                        <span style={{ fontWeight: 600, color: T.textHigh }}>{s.name}</span>
+                      </div>
+                    </td>
+                    <td style={compactTd}>
+                      {profBucket && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <span style={{
+                            width: 8, height: 8, borderRadius: 4, background: profBucket.dot, flexShrink: 0,
+                          }}
+                          />
+                          {profBucket.label}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ ...compactTd, color: T.textHigh }}>
+                      {s.attempted} of {objective.activitiesCount}
+                    </td>
+                    <td style={compactTd}>{s.lastActivity ?? "—"}</td>
+                    <td style={compactTd}>
+                      <a
+                        href={studentProfileHref(s)}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          fontFamily: T.font, fontSize: 13, fontWeight: 600, color: T.action,
+                          textDecoration: "none", whiteSpace: "nowrap",
+                        }}
+                      >
+                        Details
+                      </a>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {scatterQ.actionSuggestion && (
+          <div style={{
+            margin: 12, padding: "12px 14px", borderRadius: 8,
+            background: T.tableSelect, border: `1px solid ${T.border}`,
+            fontSize: 13, color: T.textLow, lineHeight: 1.55,
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.textHigh, marginBottom: 4 }}>
+              Suggested action
+            </div>
+            {scatterQ.actionSuggestion}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={{ border: `1px solid ${T.border}`, borderRadius: 9, background: "#fff", overflow: "hidden" }}>
@@ -2365,7 +2682,51 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
               display: "flex", flexDirection: "column", gap: 24,
               maxWidth: "100%", minWidth: 0, boxSizing: "border-box",
             }}>
-              {/* header + how-estimated disclosure */}
+              {objective.distributionChart === "scatter" ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: T.textHigh, lineHeight: 1.35 }}>
+                      Learning Objective: {objective.title}
+                    </div>
+                    <div style={{ fontSize: 13, color: T.textMuted, marginTop: 8, lineHeight: 1.5 }}>
+                      Each dot represents a student. Dot color shows estimated proficiency. Click a group to see the students in that bucket.
+                    </div>
+                    <div style={{ marginTop: 12 }}>
+                      <ScatterPlotLegend />
+                    </div>
+                  </div>
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: selectedBucket
+                      ? `minmax(0, ${SCATTER_CHART_WIDTH}px) minmax(300px, 400px)`
+                      : `minmax(0, ${SCATTER_CHART_WIDTH}px)`,
+                    gap: 24,
+                    alignItems: "start",
+                    width: "100%",
+                    maxWidth: "100%",
+                  }}>
+                    <StudentDistributionPlot
+                      roster={roster}
+                      selectedQuadrant={selectedBucket}
+                      onSelectQuadrant={onSelectBucket}
+                      inline
+                    />
+                    {selectedBucket && (() => {
+                      const q = SCATTER_QUADRANTS.find((x) => x.id === selectedBucket);
+                      return q ? (
+                        <ScatterBucketPanel
+                          key={selectedBucket}
+                          quadrant={q}
+                          students={bucketStudents}
+                          activitiesCount={objective.activitiesCount}
+                          onClose={() => onSelectBucket(null)}
+                        />
+                      ) : null;
+                    })()}
+                  </div>
+                </div>
+              ) : (
+                <>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 16, fontWeight: 700, color: T.textHigh }}>
@@ -2382,25 +2743,7 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
                 )}
               </div>
 
-              {objective.distributionChart === "scatter" ? (
-                <>
-                  <StudentDistributionPlot
-                    roster={roster}
-                    selectedQuadrant={selectedBucket}
-                    onSelectQuadrant={onSelectBucket}
-                  />
-                  {selectedBucket && (
-                    <StudentsPanel
-                      key={selectedBucket}
-                      objective={objective}
-                      bucketId={selectedBucket}
-                      students={bucketStudents}
-                      scatterView
-                      onClose={() => onSelectBucket(null)}
-                    />
-                  )}
-                </>
-              ) : objective.distributionChart === "pie" ? (
+              {objective.distributionChart === "pie" ? (
                 <>
                   <div style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.5 }}>
                     Dot color shows estimated proficiency — click a segment to view students beside the chart.
@@ -2451,18 +2794,24 @@ function ObjectiveRow({ objective, expanded, onToggleExpand, selectedBucket, onS
                 </>
               )}
 
-              <AIRecommendation
-                objective={objective}
-                roster={roster}
-                onSelectBucket={onSelectBucket}
-                onReviewActivity={(questionId) => openActivities(questionId)}
-              />
+              {!usesDistributionChart(objective) && (
+                <AIRecommendation
+                  objective={objective}
+                  roster={roster}
+                  onSelectBucket={onSelectBucket}
+                  onReviewActivity={(questionId) => openActivities(questionId)}
+                />
+              )}
 
+              {objective.distributionChart !== "scatter" && (
               <SubObjectivesTable
                 subObjectives={objective.subObjectives}
                 onViewActivities={() => onViewActivities(objective.id)}
                 activitiesCount={objective.activitiesCount}
               />
+              )}
+                </>
+              )}
             </div>
           </td>
         </tr>
